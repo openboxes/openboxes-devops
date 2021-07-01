@@ -75,7 +75,7 @@
   },
   "variables": {
     "vmName": "OB-VM",
-    "setupScriptDirectoryUrl": "https://raw.githubusercontent.com/openboxes/openboxes-devops/master/template/",
+    "setupScriptDirectoryUrl": "https://raw.githubusercontent.com/openboxes/openboxes-devops/master/arm-template/",
     "nicName": "[concat(variables('vmName'), '-VmNic')]",
     "addressPrefix": "10.0.0.0/16",
     "subnetName": "[concat(variables('vmName'), '-Subnet')]",

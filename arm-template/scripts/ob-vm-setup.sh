@@ -15,7 +15,6 @@ sudo apt-get install -y zulu-8 nginx mysql-server-5.7
 java -version
 
 # MySQL DB setup
-echo $MYSQL_USER_PASSWORD #tests if password is masked in log output
 sudo mysql -u root -e "CREATE DATABASE openboxes default charset utf8;"
 sudo mysql -u root -e "CREATE USER 'openboxes'@'localhost' IDENTIFIED BY 'openboxes'"
 sudo mysql -u root -e "GRANT ALL on openboxes.* to openboxes@localhost IDENTIFIED BY '${MYSQL_USER_PASSWORD}';"
@@ -38,8 +37,7 @@ EOT
 sudo mv /tmp/openboxes.yml /opt/openboxes/.grails/openboxes.yml
 
 # Setup openboxes user and files access
-sudo groupadd openboxes
-sudo useradd -s /bin/false -g openboxes -d /opt/openboxes openboxes 
+sudo useradd --user-group --shell /bin/false  --home-dir /opt/openboxes openboxes 
 sudo chown -R openboxes:openboxes /opt/openboxes
 
 # Installation OB as a systemd Service
