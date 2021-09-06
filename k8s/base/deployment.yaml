@@ -1,0 +1,123 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app
+  labels:
+    service: app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: app
+  template:
+    metadata:
+      labels:
+        service: app
+    spec:
+      containers:
+        - name: openboxes-app
+          env:
+            - name: DATASOURCE_USERNAME
+              value: openboxes
+            - name: DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-pass
+                  key: user-password
+            - name: DATASOURCE_URL
+              value: jdbc:mysql://db/openboxes?useSSL=false
+            - name: JAVA_TOOL_OPTIONS
+              value: -Xms1024m -Xmx1024m -XX:+UseParallelGC -Djava.awt.headless=true
+          image: ghcr.io/openboxes/openboxes:feature-upgrade-to-grails-3.3.10
+          livenessProbe:
+            exec:
+              command:
+                - curl --fail --silent localhost:8080/openboxes/health | grep UP || exit 1
+            failureThreshold: 7
+            periodSeconds: 10
+            timeoutSeconds: 10
+          ports:
+            - containerPort: 8080
+          resources: 
+            requests:
+              cpu: 200m
+              memory: 1024Mi
+            limits:
+              cpu: 1000m
+              memory: 4096Mi
+      restartPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: db
+  labels:
+    service: db
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      service: db
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        service: db
+    spec:
+      containers:
+        - name: openboxes-db
+          env:
+            - name: MYSQL_DATABASE
+              value: openboxes
+            - name: MYSQL_USER
+              value: openboxes
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-pass
+                  key: user-password
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-pass
+                  key: root-password
+          image: mysql:5.7
+          args:
+            - "--ignore-db-dir=lost+found"
+          livenessProbe:
+            exec:
+              command:
+                - mysqladmin ping -h localhost -u $MYSQL_USER --password=$MYSQL_PASSWORD
+            failureThreshold: 5
+            timeoutSeconds: 20
+          ports:
+            - containerPort: 3306
+          resources: 
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: 1000m
+              memory: 1024Mi
+          volumeMounts:
+            - mountPath: /var/lib/mysql
+              name: mysql-persistent-storage
+      restartPolicy: Always
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-pv-claim
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+  labels:
+    service: db
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi

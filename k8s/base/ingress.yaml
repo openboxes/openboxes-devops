@@ -1,0 +1,19 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: http-ingress
+  ## below annotation is needed for ingress controller setup on Azure AKS
+  ## https://docs.microsoft.com/en-us/azure/aks/ingress-basic
+  # annotations:
+  #   kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+  - http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: app
+            port:
+              number: 8080
