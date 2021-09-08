@@ -1,0 +1,11 @@
+bases:
+- ../base
+
+secretGenerator:
+- name: mysql-pass
+  literals:
+  - user-password=testttt123
+  - root-password=passwortestttt123d
+
+patchesStrategicMerge:
+- set_ingress_controller_annotation.yaml
