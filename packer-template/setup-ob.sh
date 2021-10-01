@@ -1,5 +1,7 @@
 #!/bin/bash -x
 
+set -e
+
 # Install Java 8 with Zulu
 sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 0xB1998361219BD9C9
 sudo apt-add-repository 'deb http://repos.azulsystems.com/ubuntu stable main'
@@ -16,7 +18,7 @@ sudo mysql -u root -e "GRANT ALL on openboxes.* to openboxes@localhost IDENTIFIE
 # Download OpenBoxes WAR
 sudo mkdir -p /opt/openboxes/.grails
 cd /opt/openboxes/
-sudo wget --no-verbose http://bamboo.pih-emr.org:8085/browse/OPENBOXES-SDOD2/latest/artifact/shared/Latest-WAR/openboxes.war
+sudo wget --no-verbose http://bamboo.pih-emr.org:8085/browse/OPENBOXES-DSOBGM/latest/artifact/shared/Latest-WAR/openboxes.war
 
 # Create Grails configuration file and move it to /opt/openboxes/.grails/
 cat <<-EOT > /tmp/openboxes.yml
@@ -49,8 +51,7 @@ SuccessExitStatus=143
 RestartSec=10
 Restart=always
 
-Environment="CATALINA_OPTS=-Xms1024m -Xmx1024m -XX:MaxPermSize=128m -server -XX:+UseParallelGC"
-Environment="JAVA_OPTS=-Djava.awt.headless=true -Djava.security.egd=file:/dev/./urandom"
+Environment="JAVA_TOOL_OPTIONS=-Xms1024m -Xmx1024m -XX:+UseParallelGC -Djava.awt.headless=true"
 
 [Install]
 WantedBy=multi-user.target
