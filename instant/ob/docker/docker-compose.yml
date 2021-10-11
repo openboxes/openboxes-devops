@@ -1,0 +1,39 @@
+version: "3"
+services:
+    ob-app:
+      image: ghcr.io/openboxes/openboxes:feature-upgrade-to-grails-3.3.10
+      container_name: openboxes-app
+      ports:
+        - "8083:8080"
+      depends_on:
+        - ob-mysql
+      environment:
+        DATASOURCE_USERNAME: ${DATASOURCE_USERNAME:-openboxes}
+        DATASOURCE_PASSWORD: ${DATASOURCE_PASSWORD:-openboxes}
+        DATASOURCE_URL: jdbc:mysql://openboxes-db/openboxes?useSSL=false
+        JAVA_TOOL_OPTIONS: ${JAVA_TOOL_OPTIONS:--Xms1024m -Xmx1024m -XX:+UseParallelGC -Djava.awt.headless=true}
+      healthcheck:
+        test: "curl --fail --silent localhost:8080/openboxes/health | grep UP || exit 1"
+        interval: 10s
+        timeout: 10s
+        retries: 7
+
+    ob-mysql:
+      image: mysql:5.7
+      container_name: openboxes-db
+      ports:
+        - 3406:3306
+      environment:
+        MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+        MYSQL_DATABASE: openboxes
+        MYSQL_USER: ${DATASOURCE_USERNAME:-openboxes}
+        MYSQL_PASSWORD: ${DATASOURCE_PASSWORD:-openboxes}
+      volumes:
+        - ob-mysql-data:/var/lib/mysql/
+      healthcheck:
+        test: mysqladmin ping -h localhost -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
+        timeout: 20s
+        retries: 5
+
+volumes:
+  ob-mysql-data:
