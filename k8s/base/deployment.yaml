@@ -32,10 +32,21 @@ spec:
           livenessProbe:
             exec:
               command:
+                - /bin/sh
+                - -c
                 - curl --fail --silent localhost:8080/openboxes/health | grep UP || exit 1
-            failureThreshold: 7
+            failureThreshold: 2
             periodSeconds: 10
-            timeoutSeconds: 10
+            timeoutSeconds: 5
+          startupProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - curl --fail --silent localhost:8080/openboxes/health | grep UP || exit 1
+            failureThreshold: 20
+            periodSeconds: 30
+            timeoutSeconds: 5
           ports:
             - containerPort: 8080
           resources: 
@@ -88,9 +99,13 @@ spec:
           livenessProbe:
             exec:
               command:
-                - mysqladmin ping -h localhost -u $MYSQL_USER --password=$MYSQL_PASSWORD
+                - /bin/sh
+                - -c
+                - /usr/bin/mysqladmin ping -h localhost -u $MYSQL_USER --password=$MYSQL_PASSWORD
             failureThreshold: 5
-            timeoutSeconds: 20
+            timeoutSeconds: 3
+            periodSeconds: 5
+            initialDelaySeconds: 10
           ports:
             - containerPort: 3306
           resources: 

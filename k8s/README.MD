@@ -19,6 +19,7 @@
 - Azure VPC account is setup
 - Azure CLI is installed and authorized with the account (use `az login`)
 - `kubectl` client is installed locally (can be installed with `az aks install-cli`)
+- Azure resource group is created (e.g.: `az group create --name myResourceGroup --location eastus`)
 
 #### Instructions:
 
@@ -43,7 +44,7 @@
 ## Run Kubernetes cluster locally
 
 #### Prerequisities:
-- MicroK8s/minikube/k3d 1.22 is installed (MicroK8s on Ubuntu 18+: `sudo snap install microk8s --classic`)
+- MicroK8s/minikube 1.22 is installed (MicroK8s on Ubuntu 18+: `sudo snap install microk8s --classic`)
 - Kubernetes cluster is initiated
 - Kubernetes addons for _**storage**_ and _**ingress**_ are enabled (in case of MicroK8s: `microk8s enable ingress storage`)
 
@@ -53,9 +54,12 @@
 1. Edit the `kustomization.yaml`. Change the MySQL database user and root password.
 1. Run kustomization.yaml with 
 `kubectl apply -k .`
-1. By default OpenBoxes app will be available at _localhost/openboxes_
+1. Find Kubernetes cluster ip with `minikube ip` or `kubectl cluster-info`
+1. OpenBoxes app will be available at __<kubernetes_cluster_ip>/openboxes__ 
+or in case of _microk8s_ also: __localhost/openboxes__ (depending on the *ingress* addon setup)
+
 
 ## Not supported yet
 
-* changing number of replicas in OB and MySQL apps within kustomization.yaml
-* load balancer setup
+* Changing number of replicas in OB and MySQL apps within kustomization.yaml
+* Cloud load balancer setup - Nginx ingress setup is in place for cost reduction
