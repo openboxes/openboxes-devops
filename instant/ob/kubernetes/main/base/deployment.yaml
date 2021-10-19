@@ -1,21 +1,21 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: app
+  name: openboxes-app
   labels:
-    service: app
+    service: openboxes-app
 spec:
   replicas: 1
   selector:
     matchLabels:
-      service: app
+      service: openboxes-app
   template:
     metadata:
       labels:
-        service: app
+        service: openboxes-app
     spec:
       containers:
-        - name: openboxes-app
+        - name: openboxes-app-container
           env:
             - name: DATASOURCE_USERNAME
               value: openboxes
@@ -25,7 +25,7 @@ spec:
                   name: mysql-pass
                   key: user-password
             - name: DATASOURCE_URL
-              value: jdbc:mysql://db/openboxes?useSSL=false
+              value: jdbc:mysql://openboxes-db/openboxes?useSSL=false
             - name: JAVA_TOOL_OPTIONS
               value: -Xms1024m -Xmx1024m -XX:+UseParallelGC -Djava.awt.headless=true
           image: ghcr.io/openboxes/openboxes:feature-upgrade-to-grails-3.3.10
@@ -61,23 +61,23 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: db
+  name: openboxes-db
   labels:
-    service: db
+    service: openboxes-db
 spec:
   replicas: 1
   selector:
     matchLabels:
-      service: db
+      service: openboxes-db
   strategy:
     type: Recreate
   template:
     metadata:
       labels:
-        service: db
+        service: openboxes-db
     spec:
       containers:
-        - name: openboxes-db
+        - name: openboxes-db-container
           env:
             - name: MYSQL_DATABASE
               value: openboxes
@@ -129,10 +129,10 @@ kind: PersistentVolumeClaim
 metadata:
   name: mysql-pv-claim
   labels:
-    service: db
+    service: openboxes-db
 spec:
   accessModes:
     - ReadWriteOnce
   resources:
     requests:
-      storage: 10Gi
+      storage: 5Gi

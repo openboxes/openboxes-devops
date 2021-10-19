@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: openboxes-app
+  labels:
+    service: openboxes-app
+spec:
+  type: 'LoadBalancer'
+  ports:
+    - port: 8083
+      targetPort: 8080
+  selector:
+    service: openboxes-app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openboxes-db
+  labels:
+    service: openboxes-db
+spec:
+  type: 'NodePort'
+  ports:
+    - port: 3306
+  selector:
+    service: openboxes-db

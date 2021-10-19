@@ -1,0 +1,8 @@
+bases:
+- base/
+
+secretGenerator:
+- name: mysql-pass
+  literals:
+  - user-password=openboxes
+  - root-password=password

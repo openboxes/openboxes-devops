@@ -1,0 +1,7 @@
+{
+  "id": "ob",
+  "name": "Open Boxes",
+  "description": "OpenBoxes is an open-source supply chain management system used to manage supplies and medications for healthcare facilities and disaster relief efforts",
+  "version": "v0.0.1",
+  "dependencies": []
+}
