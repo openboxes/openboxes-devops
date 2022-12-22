@@ -1,0 +1,18 @@
+<!-- Ansible generated this file from {{ template_path }}; do not edit locally! -->
+{# If this comment is present, this is the template file: disregard this warning #}
+
+<!--
+   - Add HTTP-access logs to Tomcat's catalina.out.
+   -
+   - See https://logback.qos.ch/access.html#configuration, and
+   - https://stackoverflow.com/questions/47637868/logback-config-in-tomcat
+  -->
+<configuration>
+  <statusListener class="ch.qos.logback.core.status.OnConsoleStatusListener" />
+  <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%h %l %u %user %date "%r" %s %b</pattern>
+    </encoder>
+  </appender>
+  <appender-ref ref="STDOUT" />
+</configuration>

@@ -1,0 +1,65 @@
+# Ansible generated this file from {{ template_path }}; do not edit locally!
+{# If this comment is present, this is the template file: disregard this warning #}
+
+[Unit]
+After=network.target
+{% if webserver is defined %}
+Description={{ webserver }}
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CacheDirectoryMode=750
+Group=tomcat
+LogsDirectoryMode=750
+NoNewPrivileges=true
+PrivateDevices=yes
+PrivateTmp=yes
+PrivateUsers=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=read-only
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+Restart=always
+RestartSec=10
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+Type=forking
+UMask=0007
+User=tomcat
+
+{% if webserver is defined %}
+CacheDirectory={{ webserver }}
+Environment="CATALINA_BASE=/var/lib/{{ webserver }}"
+Environment="CATALINA_HOME=/opt/{{ webserver }}"
+Environment="CATALINA_PID=/var/lib/{{ webserver }}/temp/tomcat.pid"
+{% if webserver == "tomcat7" %}
+Environment="JRE_HOME=/usr/lib/jvm/zulu7-ca-amd64/jre"
+{% else %}
+Environment="JRE_HOME=/usr/lib/jvm/zulu8-ca-amd64/jre"
+{% endif %}
+ExecStart=/opt/{{ webserver }}/bin/startup.sh
+ExecStop=/opt/{{ webserver }}/bin/shutdown.sh
+LogsDirectory={{ webserver }}
+ReadOnlyPaths=/home/tomcat /opt/{{ webserver }}
+ReadWritePaths=/var/lib/{{ webserver }}
+RuntimeDirectory={{ webserver }}
+SyslogIdentifier={{ webserver }}
+WorkingDirectory=/var/lib/{{ webserver }}
+{% else %}
+#
+# This host has been configured, by Ansible, to be a db-only server.
+# The following commands make `systemctl disable tomcat` return 0,
+# while limiting resource leaks if we accidentally enable the service.
+#
+ExecStart=/bin/true
+ExecStop=/bin/true
+{% endif %}

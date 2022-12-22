@@ -1,0 +1,46 @@
+# Ansible generated this file from {{ template_path }}; do not edit locally!
+{# If this comment is present, this is the template file: disregard this warning #}
+
+#
+# Most of this file (and all of the obscure stuff) comes from the following:
+#
+# generated 2022-12-22, Mozilla Guideline v5.6, nginx 1.17.7, OpenSSL 1.1.1k, intermediate configuration
+# https://ssl-config.mozilla.org/#server=nginx&version=1.17.7&config=intermediate&openssl=1.1.1k&guideline=5.6
+#
+# This article discussed many settings set by the preceding tool, but differed
+# in how/whether to apply them. When the two differed, I always trusted Mozilla.
+#
+# https://hackernoon.com/how-properly-configure-nginx-server-for-tls-sg1d3udt
+#
+# Note also that this file is intended to be post-processed by Certbot.
+# In particular, no listen directives are specified, and nginx -t will fail this file.
+#
+
+upstream tomcat {
+    server 127.0.0.1:8080 weight=100 max_fails=5 fail_timeout=5;
+}
+
+server {
+    access_log /var/log/nginx/tomcat-access.log;
+    add_header Strict-Transport-Security "max-age=63072000" always;
+    client_max_body_size 384M;  # enable large uploads to tomcat manager
+    error_log /var/log/nginx/tomcat-error.log;
+    resolver 1.1.1.1;
+    server_name {{ ansible_fqdn }};
+
+    # defer to Certbot for all other ssl_* parameters
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    ssl_trusted_certificate /etc/nginx/certs/lets-encrypt-x3-cross-signed.pem;
+
+    location /images {
+        root /etc/nginx/static;
+    }
+
+    location / {
+        proxy_pass http://tomcat/;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Server $host;
+    }
+}

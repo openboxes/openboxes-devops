@@ -1,0 +1,14 @@
+#!/bin/sh
+# Ansible generated this file from {{ template_path }}; do not edit locally!
+{# If this comment is present, this is the template file: disregard this warning #}
+
+echo "Restarting tomcat service ..."
+sudo service tomcat restart
+
+echo "Allowing 90 seconds for service to restart ..."
+sleep 90
+
+echo "Emailing notifications ..."
+SUBJECT="[Bamboo] Restarted tomcat on {{ ansible_fqdn }}"
+RECIPIENTS="{{ admin_emails | default('justin@openboxes.org', true) }}"
+tail -125 /var/lib/{{ webserver }}/logs/catalina.out | /usr/bin/mail -s "$SUBJECT" "$RECIPIENTS"

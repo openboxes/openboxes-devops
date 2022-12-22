@@ -1,0 +1,62 @@
+- name: Upgrading all apt packages
+  hosts: dev stg prd
+  tasks:
+
+    - name: Ensuring host is running Ubuntu 22.04 LTS
+      when: ansible_facts.distribution_release != 'jammy' or ansible_facts.distribution_version != '22.04'
+      ansible.builtin.fail:
+        msg: "this playbook only runs on Ubuntu 22.04 LTS"
+
+    - name: Running apt full-upgrade
+      register: apt_upgrade
+      ansible.builtin.apt:
+        cache_valid_time: 3600
+        update_cache: true
+        upgrade: full
+
+    - name: Collecting apt full-upgrade output
+      when: apt_upgrade.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ apt_upgrade.stdout_lines }}"
+          - "{{ apt_upgrade.stderr_lines }}"
+
+    - name: Running apt (auto)clean
+      register: apt_autoclean
+      ansible.builtin.apt:
+        autoclean: true
+        clean: true
+
+    - name: Collecting apt apt_autoclean output
+      when: apt_autoclean.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ apt_autoclean.stdout_lines }}"
+          - "{{ apt_autoclean.stderr_lines }}"
+
+    - name: Running apt autoremove
+      register: apt_autoremove
+      ansible.builtin.apt:
+        autoremove: true
+
+    - name: Collecting apt autoremove output
+      when: apt_autoremove.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ apt_autoremove.stdout_lines }}"
+          - "{{ apt_autoremove.stderr_lines }}"
+
+    - name: Checking if reboot is needed
+      register: var_run_reboot_required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+
+    - name: Rebooting host if required
+      when: var_run_reboot_required.stat.exists
+      ansible.builtin.reboot:
+        connect_timeout: 5
+        msg: Ansible is rebooting this server to apply apt updates
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        reboot_timeout: 300
+        test_command: uptime

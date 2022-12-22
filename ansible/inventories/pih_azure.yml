@@ -1,0 +1,30 @@
+# this file requires ZeroTier access (network ID c7c8172af1a86915)
+
+prd:
+  hosts:
+    obnav:
+      ansible_host: 10.160.28.10
+
+stg:
+  hosts:
+    obnavstg:
+      ansible_host: 10.160.28.11
+
+dbservers:
+  children:
+    prd:
+    stg:
+
+webservers:
+  children:
+    prd:
+    stg:
+
+azure:
+  children:
+    prd:
+    stg:
+  vars:
+    ansible_port: 22
+    ansible_ssh_private_key_file: ~/.ssh/ansible_ed25519
+    ansible_user: root
