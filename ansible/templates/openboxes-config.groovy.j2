@@ -1,0 +1,107 @@
+// Ansible generated this file from {{ template_path }}; do not edit locally!
+{# If this comment is present, this is the template file: disregard this warning #}
+
+dataSource {
+    password = "{{ db_users.openboxes.password }}"
+    {% if db_url is defined %}
+    url = "{{ db_url }}"
+    {% endif %}
+    username = 'openboxes'
+}
+
+{% if google_analytics_web_property_id is defined %}
+google.analytics.enabled = true
+google.analytics.webPropertyID = "{{ google_analytics_web_property_id }}"
+{% else %}
+google.analytics.enabled = false
+{% endif %}
+
+google.api.key = "{{ google_api_key }}"
+
+grails.app.context = "{{ app_context }}"
+
+// MailService.groovy
+{% if mail_enabled is defined %}
+grails.mail.bcc = "{{ mail_bcc }}"
+grails.mail.enabled = {{ mail_enabled }}
+grails.mail.from = "{{ mail_address }}"
+grails.mail.host = "{{ mail_host }}"
+grails.mail.password = "{{ mail_password }}"
+grails.mail.port = "{{ mail_port }}"
+grails.mail.username = "{{ mail_username }}"
+{% else %}
+grails.mail.enabled = false
+{% endif %}
+
+{% if inventory_hostname in sentry_dsn %}
+grails.plugins.raven.active = true
+grails.plugins.raven.dsn = "{{ sentry_dsn[inventory_hostname] }}"
+{% else %}
+grails.plugins.raven.active = false
+{% endif %}
+
+grails.serverURL = "https://{{ ansible_fqdn }}{{ app_context }}"
+
+hibernate.cache.use_second_level_cache = false
+
+hipaaspace.api.key = "{{ hipaaspace_api_key }}"
+
+openboxes.api.pagination.enabled = true
+openboxes.api.pagination.pageSize = 10
+openboxes.bom.enabled = false
+openboxes.forecasting.enabled = true
+openboxes.inventorySnapshot.batchSize = 100
+openboxes.jobs.buildSummaryTablesJob.cronExpression = '0 0 * * * ?'
+openboxes.jobs.buildSummaryTablesJob.enabled = true
+openboxes.jobs.calculateHistoricalQuantityJob.enabled = false
+openboxes.jobs.calculateQuantityJob.cronExpression = '0 20 * * * ?'
+openboxes.jobs.calculateQuantityJob.enabled = true
+openboxes.jobs.refreshDemandDataJob.cronExpression = "0 40 0 * * ?"
+openboxes.jobs.refreshDemandDataJob.enabled = true
+openboxes.jobs.refreshProductAvailabilityJob.delayInMilliseconds = 30000
+openboxes.jobs.refreshTransactionFactJob.cronExpression = "0 0 0 * * ?"
+openboxes.jobs.refreshTransactionFactJob.enabled = true
+openboxes.ldap.enabled = false
+
+{% if 'dev' in group_names %}
+openboxes.logo.label = 'testing'
+{% elif 'stg' in group_names %}
+openboxes.logo.label = 'staging'
+{% endif %}
+
+openboxes.logo.url = "https://{{ ansible_fqdn }}/images/pih_2020_logo.png"
+
+openboxes.mail.errors.enabled = true
+openboxes.mail.errors.recipients = ['openboxes@pih.org']
+
+openboxes.purchasing.approval.enabled = true
+openboxes.purchasing.updateUnitPrice.enabled = true
+openboxes.purchasing.updateUnitPrice.method = org.pih.warehouse.core.UpdateUnitPriceMethodCode.LAST_PURCHASE_PRICE
+openboxes.refreshAnalyticsDataOnStartup.enabled = false
+
+openboxes.report.logo.url = "https://{{ ansible_fqdn }}/images/pih_2020_logo_full.png"
+
+/*
+ * Openboxes currently uses two different Quartz plugins depending on release.
+ *
+ * Grails 1-based releases use quartz2:2.1.6.2, which reads config from org.quartz.*
+ * Grails 3-based releases use quartz:2.0.13, which reads config from quartz.*
+ *
+ * See OBS-1377 for more details, as well as https://github.com/9ci/grails-quartz2
+ * and https://github.com/grails-plugins/grails-quartz.
+ */
+
+org.quartz.scheduler.instanceId = "{{ template_destpath }}"
+quartz.scheduler.instanceId = "{{ template_destpath }}"
+org.quartz.scheduler.instanceName = 'LegacyQuartzPool'
+quartz.scheduler.instanceName = 'NewerQuartzPool'
+
+{% if quartz_threads is defined %}
+org.quartz.threadPool.threadCount = {{ quartz_threads }}
+quartz.threadPool.threadCount = {{ quartz_threads }}
+{% endif %}
+
+org.quartz.threadPool.threadPriority = 1
+quartz.threadPool.threadPriority = 1
+
+server.contextPath = "{{ app_context }}"

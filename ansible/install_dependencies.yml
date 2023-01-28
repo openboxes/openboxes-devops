@@ -1,0 +1,512 @@
+# Requires `ansible-galaxy install newrelic.newrelic-infra`
+
+- name: Installing OpenBoxes Dependencies
+  hosts: all
+  tasks:
+
+    - name: Ensuring host is running Ubuntu 22.04 LTS
+      when: ansible_facts.distribution_release != 'jammy' or ansible_facts.distribution_version != '22.04'
+      ansible.builtin.fail:
+        msg: "this playbook only runs on Ubuntu 22.04 LTS"
+
+    - name: Removing apache2 if present
+      register: apt_uninstall
+      ansible.builtin.apt:
+        pkg: apache2
+        purge: true
+        state: absent
+
+    - name: Collecting apt uninstall output
+      when: apt_uninstall.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ apt_uninstall.stdout_lines }}"
+          - "{{ apt_uninstall.stderr_lines }}"
+
+    - name: Adding Nginx apt key
+      ansible.builtin.apt_key:
+        url: https://nginx.org/keys/nginx_signing.key
+
+    - name: Adding Nginx apt repository
+      ansible.builtin.apt_repository:
+        repo: deb https://nginx.org/packages/mainline/ubuntu jammy nginx
+
+    - name: Adding Zulu apt key
+      ansible.builtin.apt_key:
+        # see https://www.azul.com/signing-keys/
+        url: https://www.azul.com/wp-content/uploads/2021/05/0xB1998361219BD9C9.txt
+
+    - name: Adding Zulu apt package
+      ansible.builtin.apt:
+        # see https://docs.azul.com/core/zulu-openjdk/install/debian
+        deb: https://cdn.azul.com/zulu/bin/zulu-repo_1.0.0-3_all.deb
+
+    - name: Installing apt dependencies
+      register: apt_install
+      ansible.builtin.apt:
+        cache_valid_time: 3600
+        install_recommends: true
+        state: latest
+        update_cache: true
+        pkg:
+          - libtcnative-1
+          - mariadb-server
+          - nginx
+          - snapd
+          - zulu-7
+          - zulu-8
+
+    - name: Collecting apt install output
+      when: apt_install.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ apt_install.stdout_lines }}"
+          - "{{ apt_install.stderr_lines }}"
+
+    - name: Installing snap dependencies
+      register: snap_install
+      ansible.builtin.shell:
+        cmd: |
+          snap install --classic --color=never --unicode=never certbot
+          snap refresh --classic --color=never --unicode=never certbot
+
+    - name: Collecting snap output
+      when: snap_install.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ snap_install.stdout_lines }}"
+          - "{{ snap_install.stderr_lines }}"
+
+    - name: Adding 'tomcat' group
+      ansible.builtin.group:
+        gid: 512
+        name: tomcat
+
+    - name: Adding 'tomcat' user
+      ansible.builtin.user:
+        create_home: true
+        groups: tomcat
+        name: tomcat
+        password: '!'
+        system: true
+        uid: 511
+
+    - name: Adding 'bamboo' group
+      ansible.builtin.group:
+        gid: 1510
+        name: bamboo
+
+    - name: Adding 'bamboo' user
+      ansible.builtin.user:
+        create_home: true
+        groups: bamboo,tomcat
+        name: bamboo
+        password: '!'
+        system: false
+        uid: 1509
+
+    - name: Adding authorized public key for 'bamboo'
+      ansible.posix.authorized_key:
+        key: "{{ lookup('file', 'secrets/bamboo_ed25519.pub') }}"
+        state: present
+        user: bamboo
+
+    - name: Allowing 'bamboo' to run `sudo service ...`
+      ansible.builtin.lineinfile:
+        dest: /etc/sudoers
+        line: '%bamboo ALL=(ALL) NOPASSWD: /usr/sbin/service'
+        regexp: '^%bamboo'
+        validate: visudo -cf %s
+
+    - name: Creating temporary download directory
+      register: tmp_download_dir
+      ansible.builtin.file:
+        group: root
+        mode: "0700"
+        owner: root
+        path: /tmp/ansible_managed_downloads
+        state: directory
+
+    - name: Downloading Tomcat archives
+      ansible.builtin.get_url:
+        checksum: "sha512:{{ item.url }}.sha512"
+        dest: "{{ item.dest }}"
+        mode: '0400'
+        url: "{{ item.url }}"
+      loop:
+        - dest: "{{ tmp_download_dir.path }}/tomcat7.tgz"
+          url: https://archive.apache.org/dist/tomcat/tomcat-7/v7.0.109/bin/apache-tomcat-7.0.109.tar.gz
+        - dest: "{{ tmp_download_dir.path }}/tomcat85.tgz"
+          url: https://dlcdn.apache.org/tomcat/tomcat-8/v8.5.84/bin/apache-tomcat-8.5.84.tar.gz
+
+    - name: Unpacking Tomcat archives
+      ansible.builtin.unarchive:
+        dest: /opt
+        group: tomcat
+        owner: tomcat
+        remote_src: true
+        src: "{{ tmp_download_dir.path }}/{{ item }}.tgz"
+        extra_opts:
+          - --transform
+          - 's!^[^/]\+\($\|/\)!{{ item }}\1!'
+      loop:
+        - tomcat7
+        - tomcat85
+
+    - name: Downloading and installing Tomcat 7 extras
+      ansible.builtin.get_url:
+        checksum: "sha512:{{ item.url }}.sha512"
+        dest: "{{ item.dest }}"
+        mode: '0400'
+        url: "{{ item.url }}"
+      loop:
+        - dest: /opt/tomcat7/bin/tomcat-juli.jar
+          url: https://archive.apache.org/dist/tomcat/tomcat-7/v7.0.109/bin/extras/tomcat-juli.jar
+        - dest: /opt/tomcat7/bin/tomcat-juli-adapters.jar
+          url: https://archive.apache.org/dist/tomcat/tomcat-7/v7.0.109/bin/extras/tomcat-juli-adapters.jar
+
+    - name: Initializing directory tree in CATALINA_BASE
+      ansible.builtin.file:
+        group: tomcat
+        mode: '0750'
+        owner: tomcat
+        path: "{{ '/'.join(item) }}"
+        state: directory
+      loop: "{{ ['/var/lib'] | product(['tomcat7', 'tomcat85']) | map('join', '/') | product(['bin', 'lib', 'logs', 'temp', 'webapps']) }}"
+
+    - name: Copying default Tomcat config files to CATALINA_BASE
+      ansible.builtin.copy:
+        dest: "/var/lib/{{ item }}"
+        group: tomcat
+        owner: tomcat
+        remote_src: true
+        src: "/opt/{{ item }}/conf"
+      loop:
+        - tomcat7
+        - tomcat85
+
+    - name: Installing default Tomcat webapps
+      ansible.builtin.copy:
+        dest: "/var/lib/{{ item[0] }}/webapps"
+        group: tomcat
+        owner: tomcat
+        remote_src: true
+        src: "/opt/{{ item[0] }}/webapps/{{ item[1] }}"
+      loop: "{{ ['tomcat7', 'tomcat85'] | product(['ROOT', 'host-manager', 'manager']) }}"
+
+    - name: Configuring Tomcat environment variables
+      ansible.builtin.template:
+        dest: "/var/lib/{{ webserver }}/bin/setenv.sh"
+        group: tomcat
+        mode: '0550'
+        owner: tomcat
+        src: templates/setenv.sh.j2
+      loop:
+        - tomcat7
+        - tomcat85
+      vars:
+        webserver: "{{ item }}"
+
+    #
+    # The following two tasks ignore Tomcat best practices.
+    #
+    # > It is recommended to never grant the manager-script or
+    # > manager-jmx roles to users that have the manager-gui role.
+    #
+    # https://tomcat.apache.org/tomcat-8.5-doc/manager-howto.html#Configuring_Manager_Application_Access
+    #
+
+    - name: Injecting Tomcat user for bamboo
+      ansible.builtin.lineinfile:
+        insertbefore: '^</tomcat-users>'
+        # https://confluence.atlassian.com/bamboo/using-tomcat-with-bamboo-for-continuous-deployment-305759758.html
+        line: '  <user username="bamboo" password="{{ tomcat_users.bamboo.password }}" roles="manager-gui,manager-script" /> <!-- ANSIBLE MANAGED -->'
+        path: "/var/lib/{{ item }}/conf/tomcat-users.xml"
+        regexp: 'username="bamboo"'
+      loop:
+        - tomcat7
+        - tomcat85
+
+    - name: Injecting Tomcat user for supply chain team
+      ansible.builtin.lineinfile:
+        insertbefore: '^</tomcat-users>'
+        # originally from obnav.pih-emr.org:/etc/tomcat7/tomcat-users.xml
+        line: '  <user username="supplychain" password="{{ tomcat_users.supplychain.password }}" roles="admin,admin-gui,manager-gui,manager-script,tomcat" /> <!-- ANSIBLE MANAGED -->'
+        path: "/var/lib/{{ item }}/conf/tomcat-users.xml"
+        regexp: 'username="supplychain"'
+      loop:
+        - tomcat7
+        - tomcat85
+
+    - name: Removing IP-based access restrictions on Tomcat manager
+      ansible.builtin.replace:
+        after: 'privileged="true" >'
+        before: '  <Manager'
+        path: "/var/lib/{{ item }}/webapps/manager/META-INF/context.xml"
+        regexp: '^(  )( *(?:<Valve|allow).*)$'
+        replace: '\1<!-- ANSIBLE MANAGED: \2 -->'
+      loop:
+        - tomcat7
+        - tomcat85
+
+    - name: Downloading and installing logback-access
+      ansible.builtin.get_url:
+        checksum: "sha1:{{ url }}.sha1"
+        dest: "/var/lib/{{ webserver }}/lib/{{ dependency }}.jar"
+        group: tomcat
+        mode: '0400'
+        owner: tomcat
+        url: "{{ url }}"
+      loop: "{{ ['tomcat7', 'tomcat85'] | product(['logback-access', 'logback-core']) }}"
+      vars:
+        webserver: "{{ item[0] }}"
+        dependency: "{{ item[1] }}"
+        version: "1.2.11"
+        url: "https://repo1.maven.org/maven2/ch/qos/logback/{{ dependency }}/{{ version }}/{{ dependency }}-{{ version }}.jar"
+
+    - name: Configuring logback-access
+      ansible.builtin.template:
+        dest: "/var/lib/{{ webserver }}/conf/logback-access.xml"
+        group: tomcat
+        mode: '0400'
+        owner: tomcat
+        src: templates/logback-access.xml.j2
+      loop:
+        - tomcat7
+        - tomcat85
+      vars:
+        webserver: "{{ item }}"
+
+    - name: Attaching logback-access to Tomcat
+      ansible.builtin.lineinfile:
+        insertbefore: '</Host>'
+        line: '        <Valve className="ch.qos.logback.access.tomcat.LogbackValve" filename="conf/logback-access.xml"/> <!-- ANSIBLE MANAGED -->'
+        path: "/var/lib/{{ item }}/conf/server.xml"
+        regexp: 'LogbackValve'
+      loop:
+        - tomcat7
+        - tomcat85
+
+    - name: Creating Tomcat systemd service
+      ansible.builtin.template:
+        dest: /etc/systemd/system/tomcat.service
+        group: root
+        mode: '0444'
+        owner: root
+        src: templates/tomcat.service.j2
+
+    - name: Installing New Relic Infrastructure Agent
+      ansible.builtin.include_role:
+        name: newrelic.newrelic-infra
+      vars:
+        nrinfragent_config:
+          license_key: "{{ new_relic_api_key }}"
+
+    - name: Downloading New Relic Tomcat Agents
+      ansible.builtin.get_url:
+        dest: "{{ item.dest }}"
+        mode: '0400'
+        url: "{{ item.url }}"
+      loop:
+        - dest: "{{ tmp_download_dir.path }}/newrelic-tomcat7.zip"
+          url: https://download.newrelic.com/newrelic/java-agent/newrelic-agent/6.5.4/newrelic-java.zip
+        - dest: "{{ tmp_download_dir.path }}/newrelic-tomcat85.zip"
+          url: https://download.newrelic.com/newrelic/java-agent/newrelic-agent/current/newrelic-java.zip
+
+    - name: Unpacking New Relic Tomcat Agents
+      ansible.builtin.unarchive:
+        dest: "{{ item.dest }}"
+        group: tomcat
+        owner: tomcat
+        remote_src: true
+        src: "{{ item.src }}"
+      loop:
+        - dest: /var/lib/tomcat7
+          src: "{{ tmp_download_dir.path }}/newrelic-tomcat7.zip"
+        - dest: /var/lib/tomcat85
+          src: "{{ tmp_download_dir.path }}/newrelic-tomcat85.zip"
+
+    - name: Configuring New Relic Tomcat Agents
+      ansible.builtin.replace:
+        path: "{{ item.file }}"
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      loop:
+        - file: /var/lib/tomcat7/newrelic/newrelic.yml
+          regexp: '^  app_name: .*$'
+          replace: "  # ANSIBLE MANAGED\n  app_name: {{ ansible_hostname }}.tomcat7"
+        - file: /var/lib/tomcat7/newrelic/newrelic.yml
+          regexp: '^  license_key: .*$'
+          replace: "  # ANSIBLE MANAGED\n  license_key: {{ new_relic_api_key }}"
+        - file: /var/lib/tomcat85/newrelic/newrelic.yml
+          regexp: '^  app_name: .*$'
+          replace: "  # ANSIBLE MANAGED\n  app_name: {{ ansible_hostname }}.tomcat85"
+        - file: /var/lib/tomcat85/newrelic/newrelic.yml
+          regexp: '^  license_key: .*$'
+          replace: "  # ANSIBLE MANAGED\n  license_key: {{ new_relic_api_key }}"
+      no_log: true
+
+    - name: Creating required Nginx directories
+      ansible.builtin.file:
+        group: nginx
+        mode: '0755'
+        owner: nginx
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - /etc/nginx/certs
+        - /etc/nginx/static
+
+    - name: Uploading PIH logo images
+      ansible.builtin.copy:
+        dest: /etc/nginx/static
+        group: nginx
+        mode: '0444'
+        owner: nginx
+        src: static/images
+
+    - name: Configuring Nginx as a reverse proxy for Tomcat
+      ansible.builtin.template:
+        dest: /etc/nginx/conf.d/default.conf
+        group: nginx
+        mode: '0444'
+        owner: nginx
+        src: templates/default.conf.j2
+        validate: 'nginx -t -c %s -c /etc/nginx/nginx.conf'
+
+    - name: Downloading cross-signed Certbot certificate
+      ansible.builtin.get_url:
+        dest: /etc/nginx/certs/lets-encrypt-x3-cross-signed.pem
+        group: nginx
+        mode: '0444'
+        owner: nginx
+        url: https://letsencrypt.org/certs/lets-encrypt-x3-cross-signed.pem
+
+    - name: Sprinkling Certbot pixie dust over Nginx config
+      register: certbot
+      ansible.builtin.shell:
+        cmd: "/snap/bin/certbot -m {{ mail_address }} -nv --agree-tos --domains {{ ansible_fqdn }} --nginx"
+
+    - name: Collecting Certbot output
+      when: certbot.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ certbot.stdout_lines }}"
+          - "{{ certbot.stderr_lines }}"
+
+    # this step must go *after* certbot runs (certbot will overwrite it otherwise)
+    - name: Enabling HTTP/2 in Nginx
+      ansible.builtin.replace:
+        path: /etc/nginx/conf.d/default.conf
+        regexp: 'listen 443 ssl;(.*)$'
+        replace: 'listen 443 ssl http2;\1  # ANSIBLE MANAGED'
+        validate: 'nginx -t -c %s -c /etc/nginx/nginx.conf'
+
+    - name: Creating Grails configuration directory
+      ansible.builtin.file:
+        group: tomcat
+        mode: '0755'
+        owner: tomcat
+        path: /home/tomcat/.grails
+        state: directory
+
+    - name: Configuring Grails
+      ansible.builtin.template:
+        dest: /home/tomcat/.grails/openboxes-config.groovy
+        group: tomcat
+        mode: '0444'
+        owner: tomcat
+        src: templates/openboxes-config.groovy.j2
+
+    - name: "Redirecting / to {{ app_context }}"
+      ansible.builtin.template:
+        dest: "/var/lib/{{ item }}/webapps/ROOT/index.jsp"
+        group: tomcat
+        mode: '0440'
+        owner: tomcat
+        src: templates/index.jsp.j2
+      loop:
+        - tomcat7
+        - tomcat85
+
+    - name: Configuring MariaDB
+      ansible.builtin.template:
+        dest: /etc/mysql/conf.d/my.cnf
+        group: root
+        mode: '0444'
+        owner: root
+        src: templates/my.cnf.j2
+
+    - name: Enabling remote DB access
+      when: remote_webserver is defined
+      block:
+        - name: Enabling remote access in my.cnf
+          # https://mariadb.com/kb/en/configuring-mariadb-for-remote-client-access/
+          ansible.builtin.blockinfile:
+            block: |
+              [mysqld]
+              bind-address=0.0.0.0
+              skip-networking=0
+            insertafter: 'EOF'
+            path: /etc/mysql/my.cnf
+        - name: Adding 'openboxes'@'$remote_webserver' to user table
+          no_log: true
+          ansible.builtin.command:
+            argv:
+              - mysql
+              - -u
+              - root
+              - -p{{ db_users.root.password }}
+              - -e
+              - >-
+                GRANT ALL PRIVILEGES ON `{{ db_name }}`.*
+                TO 'openboxes'@'{{ remote_webserver }}'
+                IDENTIFIED BY '{{ db_users.openboxes.password }}';
+                FLUSH PRIVILEGES;
+
+    - name: Restarting MariaDB service
+      ansible.builtin.systemd:
+        daemon_reload: true
+        enabled: true
+        name: mysql
+        state: restarted
+
+    - name: Enabling Tomcat and Nginx on web-serving hosts
+      when: webserver is defined
+      block:
+        - name: Restarting Tomcat service on web-serving hosts
+          ansible.builtin.systemd:
+            daemon_reload: true
+            enabled: true
+            name: tomcat
+            state: restarted
+        - name: Restarting Nginx service on web-serving hosts
+          ansible.builtin.systemd:
+            daemon_reload: true
+            enabled: true
+            name: nginx
+            state: restarted
+        - name: Adding restart-tomcat script for Bamboo
+          ansible.builtin.template:
+            dest: /opt/restart-tomcat.sh
+            group: bamboo
+            mode: '0550'
+            owner: bamboo
+            src: templates/restart-tomcat.sh.j2
+
+    - name: Disabling Tomcat and Nginx on db-exclusive hosts
+      when: webserver is not defined
+      block:
+        - name: Disabling Tomcat service on db-exclusive hosts
+          ansible.builtin.systemd:
+            daemon_reload: false
+            enabled: false
+            name: tomcat
+            state: stopped
+        - name: Disabling Nginx service on db-exclusive hosts
+          ansible.builtin.systemd:
+            daemon_reload: false
+            enabled: false
+            name: nginx
+            state: stopped
+

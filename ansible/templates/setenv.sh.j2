@@ -1,0 +1,71 @@
+# Ansible generated this file from {{ template_path }}; do not edit locally!
+{# If this comment is present, this is the template file: disregard this warning #}
+
+{% if gpars_poolsize is defined %}
+# specify number of GPars workers
+export CATALINA_OPTS="$CATALINA_OPTS -Dgpars.poolsize={{ gpars_poolsize }}"
+{% endif %}
+
+# tell Tomcat where Ubuntu installs the libtcnative library
+export CATALINA_OPTS="$CATALINA_OPTS -Djava.library.path=/usr/lib/x86_64-linux-gnu"
+
+# https://github.com/grails/grails-core/issues/2359
+export CATALINA_OPTS="$CATALINA_OPTS -Dstringchararrayaccessor.disabled=true"
+
+# run JVM as a server; don't load AWT libraries
+export CATALINA_OPTS="$CATALINA_OPTS -server -Djava.awt.headless=true"
+
+{% if tomcat_xms is defined and tomcat_xmx is defined %}
+# set heap size
+export CATALINA_OPTS="$CATALINA_OPTS -Xms{{ tomcat_xms }} -Xmx{{ tomcat_xmx }}"
+{% endif %}
+
+{% if tomcat_newsize is defined %}
+# set size of the "young" generation
+export CATALINA_OPTS="$CATALINA_OPTS -XX:NewSize={{ tomcat_newsize }} -XX:MaxNewSize={{ tomcat_newsize }}"
+{% endif %}
+
+{% if webserver == "tomcat7" and tomcat_permsize is defined and tomcat_maxpermsize is defined %}
+# make space for dynamic (groovy, jsp) classes; not needed in Java 8
+export CATALINA_OPTS="$CATALINA_OPTS -XX:PermSize={{ tomcat_permsize }} -XX:MaxPermSize={{ tomcat_maxpermsize }}"
+{% endif %}
+
+# configure garbage collection
+{% if webserver == "tomcat7" %}
+export CATALINA_OPTS="$CATALINA_OPTS -XX:+CMSClassUnloadingEnabled -XX:+DisableExplicitGC -XX:+UseConcMarkSweepGC"
+{% else %}
+export CATALINA_OPTS="$CATALINA_OPTS -XX:+UseG1GC -XX:+UseStringDeduplication"
+{% endif %}
+
+# https://logging.apache.org/log4j/2.x/security.html
+export JAVA_OPTS="$JAVA_OPTS -Dlog4j2.formatMsgNoLookups=true"
+export LOG4J_FORMAT_MSG_NO_LOOKUPS=true
+
+# configure New Relic
+export CATALINA_OPTS="$CATALINA_OPTS -javaagent:/var/lib/{{ webserver }}/newrelic/newrelic.jar"
+export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.transaction_tracer.explain_enabled=true -Dnewrelic.config.transaction_tracer.record_sql=raw"
+{% if webserver != "tomcat7" %}
+export CATALINA_OPTS="$CATALINA_OPTS -XX:StartFlightRecording"  # required for JFR, below (Java 8+)
+{% endif %}
+export NEW_RELIC_APP_NAME="{{ ansible_hostname }}.{{ webserver }}"
+export NEW_RELIC_BROWSER_MONITORING_AUTO_INSTRUMENT=true
+export NEW_RELIC_CIRCUITBREAKER_ENABLED=true
+export NEW_RELIC_CIRCUITBREAKER_GC_CPU_THRESHOLD=50
+export NEW_RELIC_CIRCUITBREAKER_MEMORY_THRESHOLD=90
+export NEW_RELIC_CLASS_TRANSFORMER_COM_NEWRELIC_INSTRUMENTATION_JDBC_RESULTSET_ENABLED=false  # deprecated
+export NEW_RELIC_CROSS_APPLICATION_TRACER_ENABLED=false  # old way
+export NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true  # new way
+export NEW_RELIC_JAR_COLLECTOR_ENABLED=true
+{% if webserver != "tomcat7" %}
+export NEW_RELIC_JFR_ENABLED=true  # requires java 8+ with flight recording support
+{% endif %}
+export NEW_RELIC_LICENSE_KEY={{ new_relic_api_key }}
+export NEW_RELIC_LOG=STDOUT
+export NEW_RELIC_MAX_STACK_TRACE_LINES=256
+export NEW_RELIC_SYNC_STARTUP=true
+export NEW_RELIC_THREAD_PROFILER_ENABLED=true
+
+{% if ansible_hostname in sentry_dsn %}
+# configure Sentry
+export SENTRY_DSN={{ sentry_dsn[ansible_hostname] }}
+{% endif %}

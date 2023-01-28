@@ -1,0 +1,117 @@
+webserver_prd:
+  hosts:
+    obprd:
+      ansible_host: 74.50.49.135
+      db_url: jdbc:mysql://dbprd.pih-emr.org:3306/openboxes
+      webserver: tomcat7
+  vars:
+    gpars_poolsize: 8
+    mail_enabled: true
+    quartz_threads: 8
+    tomcat_maxpermsize: 1024m
+    tomcat_newsize: 256m
+    tomcat_permsize: 512m
+    tomcat_xms: 6144m
+    tomcat_xmx: 6144m
+
+database_prd:
+  hosts:
+    dbprd:
+      ansible_host: 74.50.49.138
+      db_name: openboxes
+      remote_webserver: 74.50.49.135
+
+prd:
+  children:
+    database_prd:
+    webserver_prd:
+
+webserver_stg:
+  hosts:
+    obstg:
+      ansible_host: 74.50.49.133
+      db_url: jdbc:mysql://dbstg.pih-emr.org:3306/openboxes
+      webserver: tomcat7
+  vars:
+    gpars_poolsize: 8
+    mail_enabled: false
+    quartz_threads: 8
+    tomcat_maxpermsize: 1024m
+    tomcat_newsize: 256m
+    tomcat_permsize: 512m
+    tomcat_xms: 6144m
+    tomcat_xmx: 6144m
+
+database_stg:
+  hosts:
+    dbstg:
+      ansible_host: 74.50.49.124
+      db_name: openboxes
+      remote_webserver: 74.50.49.133
+
+stg:
+  children:
+    database_stg:
+    webserver_stg:
+
+dev:
+  hosts:
+    obdev1:
+      ansible_host: 74.50.49.109
+      db_name: openboxes
+      db_url: jdbc:mysql://localhost:3306/openboxes
+      webserver: tomcat7
+    obdev2:
+      ansible_host: 74.50.49.117
+      db_name: openboxes
+      db_url: jdbc:mysql://localhost:3306/openboxes
+      webserver: tomcat7
+    obdev3:
+      ansible_host: 74.50.49.122
+      db_name: openboxes
+      db_url: jdbc:mysql://localhost:3306/openboxes
+      webserver: tomcat85
+    obdev4:
+      ansible_host: 74.50.49.134
+      db_name: openboxes
+      db_url: jdbc:mysql://localhost:3306/openboxes
+      webserver: tomcat85
+  vars:
+    gpars_poolsize: 4
+    mail_enabled: false
+    quartz_threads: 4
+    tomcat_maxpermsize: 256m
+    tomcat_newsize: 256m
+    tomcat_permsize: 256m
+    tomcat_xms: 2560m
+    tomcat_xmx: 2560m
+
+dbservers:
+  children:
+    dev:
+    database_prd:
+    database_stg:
+
+webservers:
+  children:
+    dev:
+    webserver_prd:
+    webserver_stg:
+
+rimu:
+  children:
+    dev:
+    prd:
+    stg:
+  vars:
+    admin_emails: justin@openboxes.org,mpearson@pih.org
+    ansible_port: 22
+    ansible_ssh_private_key_file: ~/.ssh/ansible_ed25519
+    ansible_user: root
+    app_context: /openboxes
+    mail_address: openboxes@pih.org
+    mail_bcc: justin@openboxes.com
+    mail_host: smtp.sendgrid.net
+    mail_port: 587
+    mail_username: apikey
+
