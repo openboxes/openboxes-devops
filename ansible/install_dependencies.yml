@@ -77,46 +77,74 @@
           - "{{ snap_install.stdout_lines }}"
           - "{{ snap_install.stderr_lines }}"
 
-    - name: Adding 'tomcat' group
+    - name: Adding groups
       ansible.builtin.group:
-        gid: 512
-        name: tomcat
+        gid: "{{ item.gid }}"
+        name: "{{ item.name }}"
+      loop:
+        - gid: 512
+          name: tomcat
+        - gid: 1510
+          name: staff
 
-    - name: Adding 'tomcat' user
+    - name: Adding users
       ansible.builtin.user:
         create_home: true
-        groups: tomcat
-        name: tomcat
+        group: "{{ item.group }}"
+        groups: "{{ item.groups }}"
+        name: "{{ item.name }}"
         password: '!'
-        system: true
-        uid: 511
+        system: "{{ item.system|bool }}"
+        uid: "{{ item.uid }}"
+      loop:
+        - group: tomcat
+          groups:
+          name: tomcat
+          system: true
+          uid: 511
+        - group: staff
+          groups: tomcat
+          name: bamboo
+          system: false
+          uid: 1509
+        - group: staff
+          groups: tomcat
+          name: jmiranda
+          system: false
+          uid: 1508
+        - group: staff
+          groups: tomcat
+          name: soldevelo
+          system: false
+          uid: 1507
 
-    - name: Adding 'bamboo' group
-      ansible.builtin.group:
-        gid: 1510
-        name: bamboo
-
-    - name: Adding 'bamboo' user
-      ansible.builtin.user:
-        create_home: true
-        groups: bamboo,tomcat
-        name: bamboo
-        password: '!'
-        system: false
-        uid: 1509
-
-    - name: Adding authorized public key for 'bamboo'
+    - name: Adding authorized public keys for non-system users
+      when: 'lookup("ansible.builtin.fileglob", item.key_file) != []'
       ansible.posix.authorized_key:
-        key: "{{ lookup('file', 'secrets/bamboo_ed25519.pub') }}"
+        key: "{{ lookup('ansible.builtin.file', item.key_file) }}"
         state: present
-        user: bamboo
+        user: "{{ item.user }}"
+      loop:
+        - key_file: public_keys/bamboo_ed25519.pub
+          user: bamboo
+        - key_file: public_keys/jmiranda_ed25519.pub
+          user: jmiranda
+        - key_file: public_keys/soldevelo_ed25519.pub
+          user: soldevelo
 
-    - name: Allowing 'bamboo' to run `sudo service ...`
+    - name: Enabling sudo access for non-system users
       ansible.builtin.lineinfile:
         dest: /etc/sudoers
-        line: '%bamboo ALL=(ALL) NOPASSWD: /usr/sbin/service'
-        regexp: '^%bamboo'
+        line: "{{ item.line }}"
+        regexp: "{{ item.regexp }}"
         validate: visudo -cf %s
+      loop:
+        - line: 'bamboo ALL=(ALL) NOPASSWD:/sbin/service,/usr/sbin/service'
+          regexp: '^bamboo'
+        - line: 'jmiranda ALL=(ALL) ALL'
+          regexp: '^jmiranda'
+        - line: 'soldevelo ALL=(ALL) ALL'
+          regexp: '^soldevelo'
 
     - name: Creating temporary download directory
       register: tmp_download_dir
@@ -489,7 +517,7 @@
         - name: Adding restart-tomcat script for Bamboo
           ansible.builtin.template:
             dest: /opt/restart-tomcat.sh
-            group: bamboo
+            group: staff
             mode: '0550'
             owner: bamboo
             src: templates/restart-tomcat.sh.j2
