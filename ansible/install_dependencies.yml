@@ -117,6 +117,31 @@
           name: soldevelo
           system: false
           uid: 1507
+        - group: staff
+          groups: tomcat
+          name: anadolny
+          system: false
+          uid: 1506
+        - group: staff
+          groups: tomcat
+          name: awalkowiak
+          system: false
+          uid: 1505
+        - group: staff
+          groups: tomcat
+          name: drodzewicz
+          system: false
+          uid: 1504
+        - group: staff
+          groups: tomcat
+          name: kchelstowski
+          system: false
+          uid: 1503
+        - group: staff
+          groups: tomcat
+          name: kkrawczyk
+          system: false
+          uid: 1502
 
     - name: Adding authorized public keys for non-system users
       when: 'lookup("ansible.builtin.fileglob", item.key_file) != []'
@@ -125,26 +150,47 @@
         state: present
         user: "{{ item.user }}"
       loop:
+        - key_file: public_keys/anadolny_ed25519.pub
+          user: anadolny
+        - key_file: public_keys/awalkowiak_ed25519.pub
+          user: awalkowiak
         - key_file: public_keys/bamboo_ed25519.pub
           user: bamboo
+        - key_file: public_keys/drodzewicz_ed25519.pub
+          user: drodzewicz
         - key_file: public_keys/jmiranda_ed25519.pub
           user: jmiranda
-        - key_file: public_keys/soldevelo_ed25519.pub
-          user: soldevelo
+        - key_file: public_keys/kchelstowski_ed25519.pub
+          user: kchelstowski
+        - key_file: public_keys/kkrawczyk_ed25519.pub
+          user: kkrawczyk
 
-    - name: Enabling sudo access for non-system users
+    - name: Enabling sudo access for administrators
       ansible.builtin.lineinfile:
         dest: /etc/sudoers
         line: "{{ item.line }}"
         regexp: "{{ item.regexp }}"
         validate: visudo -cf %s
       loop:
+        - line: 'awalkowiak ALL=(ALL) ALL'
+          regexp: '^awalkowiak'
         - line: 'bamboo ALL=(ALL) NOPASSWD:/sbin/service,/usr/sbin/service'
           regexp: '^bamboo'
         - line: 'jmiranda ALL=(ALL) ALL'
           regexp: '^jmiranda'
-        - line: 'soldevelo ALL=(ALL) ALL'
-          regexp: '^soldevelo'
+
+    - name: Enabling sudo access for developers
+      when: production is not defined or not production
+      ansible.builtin.lineinfile:
+        dest: /etc/sudoers
+        line: "{{ item.line }}"
+        regexp: "{{ item.regexp }}"
+        validate: visudo -cf %s
+      loop:
+        - line: 'dariusz ALL=(ALL) ALL'
+          regexp: '^dariusz'
+        - line: 'kchelstowski ALL=(ALL) ALL'
+          regexp: '^kchelstowski'
 
     - name: Creating temporary download directory
       register: tmp_download_dir

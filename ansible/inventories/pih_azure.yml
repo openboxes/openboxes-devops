@@ -4,24 +4,34 @@ prd:
   hosts:
     obnav:
       ansible_host: 10.160.28.10
+  vars:
+    production: true
 
 stg:
   hosts:
     obnavstg:
       ansible_host: 10.160.28.11
 
+dev:
+  hosts:
+    obdev:
+      ansible_host: 10.160.28.12
+
 dbservers:
   children:
+    dev:
     prd:
     stg:
 
 webservers:
   children:
+    dev:
     prd:
     stg:
 
 azure:
   children:
+    dev:
     prd:
     stg:
   vars:

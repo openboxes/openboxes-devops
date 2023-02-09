@@ -25,6 +25,8 @@ prd:
   children:
     database_prd:
     webserver_prd:
+  vars:
+    production: true
 
 webserver_stg:
   hosts:
