@@ -120,3 +120,11 @@
       loop:
         - tomcat7
         - tomcat85
+
+    - name: Restarting Tomcat service on web-serving hosts
+      when: webserver is defined
+      ansible.builtin.systemd:
+        daemon_reload: true
+        enabled: true
+        name: tomcat
+        state: restarted

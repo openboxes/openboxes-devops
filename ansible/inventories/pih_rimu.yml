@@ -114,6 +114,12 @@ rimu:
     ansible_ssh_private_key_file: ~/.ssh/ansible_ed25519
     ansible_user: root
     app_context: /openboxes
+    bamboo:
+      project_ids:
+        - 3735553
+      remote_agent_home: /home/bamboo/remote-agent
+      server_url: https://bamboo-ci.pih-emr.org
+      server_version: 9.2.1
     mail_address: openboxes@pih.org
     mail_bcc: justin@openboxes.com,mpearson@pih.org
     mail_host: smtp.sendgrid.net

@@ -48,3 +48,10 @@
     - name: Collecting ZeroTier public identity
       ansible.builtin.debug:
         msg: "{{ zerotier_public_identity.stdout }}"
+
+    - name: Connecting to ZeroTier VPNs
+      ansible.builtin.shell:
+        cmd: |
+          zerotier-cli leave {{ item | quote }}
+          zerotier-cli join {{ item | quote }} AllowDNS=true
+      loop: "{{ zerotier_vpns }}"

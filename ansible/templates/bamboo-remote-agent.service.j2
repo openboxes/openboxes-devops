@@ -1,0 +1,42 @@
+# Ansible generated this file from {{ template_path }}; do not edit locally!
+{# If this comment is present, this is the template file: disregard this warning #}
+
+[Unit]
+After=network.target syslog.target
+Description=Bamboo Remote Agent
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CacheDirectoryMode=750
+Environment="JRE_HOME=/usr/lib/jvm/zulu8-ca-amd64/jre"
+ExecStart={{ bamboo.remote_agent_home }}/bin/bamboo-agent.sh start
+ExecStop={{ bamboo.remote_agent_home }}/bin/bamboo-agent.sh stop
+Group=staff
+LogsDirectory=bamboo-remote-agent
+LogsDirectoryMode=750
+NoNewPrivileges=true
+PrivateDevices=yes
+PrivateTmp=yes
+PrivateUsers=yes
+ProtectClock=yes
+ProtectControlGroups=yes
+ProtectHome=read-only
+ProtectHostname=yes
+ProtectKernelLogs=yes
+ProtectKernelTunables=yes
+ProtectSystem=strict
+ReadWritePaths=/home/bamboo
+Restart=always
+RestartSec=10
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RuntimeDirectory=bamboo-remote-agent
+SyslogIdentifier=bamboo-remote-agent
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+Type=forking
+UMask=0007
+User=bamboo
+WorkingDirectory={{ bamboo.remote_agent_home }}
