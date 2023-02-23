@@ -152,6 +152,11 @@
           name: kkrawczyk
           system: false
           uid: 1502
+        - group: staff
+          groups: tomcat
+          name: jmbabazi
+          system: false
+          uid: 1501
 
     - name: Adding authorized public keys for non-system users
       when: 'lookup("ansible.builtin.fileglob", item.key_file) != []'
@@ -174,6 +179,8 @@
           user: kchelstowski
         - key_file: public_keys/kkrawczyk_ed25519.pub
           user: kkrawczyk
+        - key_file: public_keys/jmbabazi_rsa.pub
+          user: jmbabazi
 
     - name: Enabling sudo access for administrators
       ansible.builtin.lineinfile:
@@ -186,6 +193,8 @@
           regexp: '^awalkowiak'
         - line: 'bamboo ALL=(ALL) NOPASSWD:/sbin/service,/usr/sbin/service'
           regexp: '^bamboo'
+        - line: 'jmbabazi ALL=(ALL) ALL'
+          regexp: '^jmbabazi'
         - line: 'jmiranda ALL=(ALL) ALL'
           regexp: '^jmiranda'
 
@@ -614,4 +623,3 @@
             enabled: false
             name: nginx
             state: stopped
-
