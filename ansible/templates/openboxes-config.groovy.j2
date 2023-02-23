@@ -23,7 +23,7 @@ grails.app.context = "{{ app_context }}"
 // MailService.groovy
 {% if mail_enabled is defined %}
 grails.mail.bcc = "{{ mail_bcc }}"
-grails.mail.enabled = {{ mail_enabled }}
+grails.mail.enabled = {{ mail_enabled | string | lower }}
 grails.mail.from = "{{ mail_address }}"
 grails.mail.host = "{{ mail_host }}"
 grails.mail.password = "{{ mail_password }}"
