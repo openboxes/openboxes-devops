@@ -23,12 +23,47 @@ upstream tomcat {
 server {
     access_log /var/log/nginx/tomcat-access.log;
     add_header Strict-Transport-Security "max-age=63072000" always;
+
     client_max_body_size 384M;  # enable large uploads to tomcat manager
+
     error_log /var/log/nginx/tomcat-error.log;
+
+    # dynamically gzip non-image data (OBS-1396)
+    gzip on;
+    gzip_comp_level 1;
+    gzip_disable "msie6";
+    gzip_min_length 512;
+    gzip_proxied any;
+    gzip_vary on;
+    gzip_types
+      application/javascript
+      application/x-javascript
+      application/json
+      application/rdf+xml
+      application/rss+xml
+      application/xhtml+xml
+      application/xml
+      font/eot
+      font/otf
+      font/ttf
+      image/svg+xml
+      text/css
+      text/javascript
+      text/plain
+      text/xml;
+
+    # default timeout of 1 minute can return 504's when reports are slow (OBS-1396)
+    proxy_connect_timeout 360;
+    proxy_read_timeout 360;
+    proxy_send_timeout 360;
+
     resolver 1.1.1.1;
     server_name {{ ansible_fqdn }};
 
-    # defer to Certbot for all other ssl_* parameters
+    #
+    # We only set a few ssl_* parameters; for all others, defer to
+    # Certbot, which modifies this file after Ansible installs it.
+    #
     ssl_stapling on;
     ssl_stapling_verify on;
     ssl_trusted_certificate /etc/nginx/certs/lets-encrypt-x3-cross-signed.pem;
