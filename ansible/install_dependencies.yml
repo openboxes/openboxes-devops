@@ -514,6 +514,15 @@
         path: /home/tomcat/.grails
         state: directory
 
+    - name: Removing stale Grails configuration
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /home/tomcat/.grails/openboxes-config.properties
+        - /var/lib/tomcat7/.grails
+        - /var/lib/tomcat85/.grails
+
     - name: Configuring Grails
       ansible.builtin.template:
         dest: /home/tomcat/.grails/openboxes-config.groovy
