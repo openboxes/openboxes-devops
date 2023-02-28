@@ -27,7 +27,7 @@ grails.mail.enabled = {{ mail_enabled }}
 grails.mail.from = "{{ mail_address }}"
 grails.mail.host = "{{ mail_host }}"
 grails.mail.password = "{{ mail_password }}"
-grails.mail.port = "{{ mail_port }}"
+grails.mail.port = {{ mail_port }}
 grails.mail.username = "{{ mail_username }}"
 {% else %}
 grails.mail.enabled = false
@@ -56,10 +56,10 @@ openboxes.jobs.buildSummaryTablesJob.enabled = true
 openboxes.jobs.calculateHistoricalQuantityJob.enabled = false
 openboxes.jobs.calculateQuantityJob.cronExpression = '0 20 * * * ?'
 openboxes.jobs.calculateQuantityJob.enabled = true
-openboxes.jobs.refreshDemandDataJob.cronExpression = "0 40 0 * * ?"
+openboxes.jobs.refreshDemandDataJob.cronExpression = '0 40 0 * * ?'
 openboxes.jobs.refreshDemandDataJob.enabled = true
 openboxes.jobs.refreshProductAvailabilityJob.delayInMilliseconds = 30000
-openboxes.jobs.refreshTransactionFactJob.cronExpression = "0 0 0 * * ?"
+openboxes.jobs.refreshTransactionFactJob.cronExpression = '0 0 0 * * ?'
 openboxes.jobs.refreshTransactionFactJob.enabled = true
 openboxes.ldap.enabled = false
 
@@ -71,8 +71,12 @@ openboxes.logo.label = 'staging'
 
 openboxes.logo.url = "https://{{ ansible_fqdn }}/images/pih_2020_logo.png"
 
-openboxes.mail.errors.enabled = true
+{% if mail_enabled is defined %}
+openboxes.mail.errors.enabled = {{ mail_enabled | string | lower }}
 openboxes.mail.errors.recipients = ['openboxes@pih.org']
+{% else %}
+openboxes.mail.errors.enabled = false
+{% endif %}
 
 openboxes.purchasing.approval.enabled = true
 openboxes.purchasing.updateUnitPrice.enabled = true

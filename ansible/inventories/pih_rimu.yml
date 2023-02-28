@@ -36,7 +36,7 @@ webserver_stg:
       webserver: tomcat7
   vars:
     gpars_poolsize: 8
-    mail_enabled: false
+    mail_enabled: true
     quartz_threads: 8
     tomcat_maxpermsize: 1024m
     tomcat_newsize: 256m
@@ -112,7 +112,7 @@ rimu:
     ansible_user: root
     app_context: /openboxes
     mail_address: openboxes@pih.org
-    mail_bcc: justin@openboxes.com
+    mail_bcc: justin@openboxes.com,mpearson@pih.org
     mail_host: smtp.sendgrid.net
     mail_port: 587
     mail_username: apikey
