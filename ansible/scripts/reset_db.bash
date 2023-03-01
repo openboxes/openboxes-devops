@@ -75,7 +75,7 @@ $local_sudo true
 echo "(Re)initializing database \`$db_name\` ..."
 $local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" -e "drop database if exists \`$db_name\`;"
 $local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" -e "drop user if exists '$db_user'@'$db_client'; create user '$db_user'@'$db_client' identified by '$DB_USER_PASSWORD'; flush privileges;"
-$local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" -e "create database \`$db_name\` default charset utf8; grant all on \`$db_name\`.* to '$db_user'@'$db_client';"
+$local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" -e "create database \`$db_name\` default charset utf8mb4 default collate utf8mb4_unicode_ci; grant all on \`$db_name\`.* to '$db_user'@'$db_client';"
 $local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" -e "delete from mysql.user where User = 'finance';"
 if [ "$db_client" == 'localhost' ]
 then

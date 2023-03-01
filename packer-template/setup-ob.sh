@@ -11,7 +11,7 @@ java -version
 
 # MySQL DB setup
 echo $MYSQL_USER_PASSWORD #tests if password is masked in log output
-sudo mysql -u root -e "CREATE DATABASE openboxes default charset utf8;"
+sudo mysql -u root -e "CREATE DATABASE openboxes default charset utf8mb4 default collate utf8mb4_unicode_ci;"
 sudo mysql -u root -e "CREATE USER 'openboxes'@'localhost' IDENTIFIED BY 'openboxes'"
 sudo mysql -u root -e "GRANT ALL on openboxes.* to openboxes@localhost IDENTIFIED BY '${MYSQL_USER_PASSWORD}';"
 
@@ -42,7 +42,6 @@ sudo bash -c 'cat <<-EOT > /etc/systemd/system/openboxes.service
 [Unit]
 Description=OpenBoxes app
 After=syslog.target
-
 [Service]
 User=openboxes
 WorkingDirectory=/opt/openboxes
