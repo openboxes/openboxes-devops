@@ -31,6 +31,15 @@
       ansible.builtin.apt_repository:
         repo: deb https://nginx.org/packages/mainline/ubuntu jammy nginx
 
+    - name: Adding ZeroTier apt key
+      ansible.builtin.apt_key:
+        # see https://www.zerotier.com/download/
+        url: https://raw.githubusercontent.com/zerotier/ZeroTierOne/master/doc/contact%40zerotier.com.gpg
+
+    - name: Adding ZeroTier apt repository
+      ansible.builtin.apt_repository:
+        repo: deb https://download.zerotier.com/debian/jammy jammy main
+
     - name: Adding Zulu apt key
       ansible.builtin.apt_key:
         # see https://www.azul.com/signing-keys/
@@ -53,6 +62,7 @@
           - mariadb-server
           - nginx
           - snapd
+          - zerotier-one
           - zulu-7
           - zulu-8
 
@@ -142,6 +152,11 @@
           name: kkrawczyk
           system: false
           uid: 1502
+        - group: staff
+          groups: tomcat
+          name: jmbabazi
+          system: false
+          uid: 1501
 
     - name: Adding authorized public keys for non-system users
       when: 'lookup("ansible.builtin.fileglob", item.key_file) != []'
@@ -164,6 +179,8 @@
           user: kchelstowski
         - key_file: public_keys/kkrawczyk_ed25519.pub
           user: kkrawczyk
+        - key_file: public_keys/jmbabazi_rsa.pub
+          user: jmbabazi
 
     - name: Enabling sudo access for administrators
       ansible.builtin.lineinfile:
@@ -176,6 +193,8 @@
           regexp: '^awalkowiak'
         - line: 'bamboo ALL=(ALL) NOPASSWD:/sbin/service,/usr/sbin/service'
           regexp: '^bamboo'
+        - line: 'jmbabazi ALL=(ALL) ALL'
+          regexp: '^jmbabazi'
         - line: 'jmiranda ALL=(ALL) ALL'
           regexp: '^jmiranda'
 
@@ -538,6 +557,27 @@
                 IDENTIFIED BY '{{ db_users.openboxes.password }}';
                 FLUSH PRIVILEGES;
 
+    - name: Restarting ZeroTier service
+      ansible.builtin.systemd:
+        daemon_reload: true
+        enabled: true
+        name: zerotier-one
+        state: restarted
+
+    - name: Waiting for ZeroTier identity file to be generated
+      ansible.builtin.wait_for:
+        path: /var/lib/zerotier-one/identity.secret
+        state: present
+
+    - name: Checking ZeroTier public identity
+      register: zerotier_public_identity
+      ansible.builtin.shell:
+        cmd: cat /var/lib/zerotier-one/identity.public
+
+    - name: Collecting ZeroTier public identity
+      ansible.builtin.debug:
+        msg: "{{ zerotier_public_identity.stdout }}"
+
     - name: Restarting MariaDB service
       ansible.builtin.systemd:
         daemon_reload: true
@@ -583,4 +623,3 @@
             enabled: false
             name: nginx
             state: stopped
-
