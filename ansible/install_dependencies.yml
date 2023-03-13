@@ -189,13 +189,13 @@
         regexp: "{{ item.regexp }}"
         validate: visudo -cf %s
       loop:
-        - line: 'awalkowiak ALL=(ALL) ALL'
+        - line: 'awalkowiak ALL=(ALL) NOPASSWD:ALL'
           regexp: '^awalkowiak'
         - line: 'bamboo ALL=(ALL) NOPASSWD:/sbin/service,/usr/sbin/service'
           regexp: '^bamboo'
-        - line: 'jmbabazi ALL=(ALL) ALL'
+        - line: 'jmbabazi ALL=(ALL) NOPASSWD:ALL'
           regexp: '^jmbabazi'
-        - line: 'jmiranda ALL=(ALL) ALL'
+        - line: 'jmiranda ALL=(ALL) NOPASSWD:ALL'
           regexp: '^jmiranda'
 
     - name: Enabling sudo access for developers
@@ -206,9 +206,9 @@
         regexp: "{{ item.regexp }}"
         validate: visudo -cf %s
       loop:
-        - line: 'dariusz ALL=(ALL) ALL'
+        - line: 'dariusz ALL=(ALL) NOPASSWD:ALL'
           regexp: '^dariusz'
-        - line: 'kchelstowski ALL=(ALL) ALL'
+        - line: 'kchelstowski ALL=(ALL) NOPASSWD:ALL'
           regexp: '^kchelstowski'
 
     - name: Creating temporary download directory
