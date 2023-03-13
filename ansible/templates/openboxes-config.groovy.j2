@@ -3,6 +3,19 @@
 
 dataSource {
     password = "{{ db_users.openboxes.password }}"
+    properties = {
+        autoReconnectForPools = true
+        autoSlowLog = {{ 'dev' in group_names or 'stg' in group_names | string | lower }}
+        dumpQueriesOnException = true
+        explainSlowQueries = {{ 'dev' in group_names or 'stg' in group_names | string | lower }}
+        includeInnodbStatusInDeadlockExceptions = true
+        includeThreadDumpInDeadlockExceptions = true
+        includeThreadNamesAsStatementComment = true
+        logSlowQueries = {{ 'dev' in group_names or 'stg' in group_names | string | lower }}
+        requireSSL = true
+        useSSL = true
+        verifyServerCertificate = true
+    }
     {% if db_url is defined %}
     url = "{{ db_url }}"
     {% endif %}
