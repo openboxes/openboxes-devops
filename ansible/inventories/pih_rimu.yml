@@ -5,6 +5,7 @@ webserver_prd:
       db_url: jdbc:mysql://dbprd.pih-emr.org:3306/openboxes
       webserver: tomcat7
   vars:
+    gc_threads: 5
     gpars_poolsize: 8
     mail_enabled: true
     quartz_threads: 8
@@ -35,6 +36,7 @@ webserver_stg:
       db_url: jdbc:mysql://dbstg.pih-emr.org:3306/openboxes
       webserver: tomcat7
   vars:
+    gc_threads: 5
     gpars_poolsize: 8
     mail_enabled: true
     quartz_threads: 8
@@ -79,6 +81,7 @@ dev:
       db_url: jdbc:mysql://localhost:3306/openboxes
       webserver: tomcat85
   vars:
+    gc_threads: 3
     gpars_poolsize: 4
     mail_enabled: false
     quartz_threads: 4

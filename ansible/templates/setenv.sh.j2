@@ -31,10 +31,13 @@ export CATALINA_OPTS="$CATALINA_OPTS -XX:PermSize={{ tomcat_permsize }} -XX:MaxP
 {% endif %}
 
 # configure garbage collection
-{% if webserver == "tomcat7" %}
-export CATALINA_OPTS="$CATALINA_OPTS -XX:+CMSClassUnloadingEnabled -XX:+DisableExplicitGC -XX:+UseConcMarkSweepGC"
-{% else %}
-export CATALINA_OPTS="$CATALINA_OPTS -XX:+UseG1GC -XX:+UseStringDeduplication"
+# https://www.oracle.com/technical-resources/articles/java/g1gc.html
+export CATALINA_OPTS="$CATALINA_OPTS -XX:+CMSClassUnloadingEnabled -XX:+DisableExplicitGC -XX:+UseG1GC"
+{% if gc_threads is defined %}
+export CATALINA_OPTS="-XX:ParallelGCThreads={{ gc_threads }}"
+{% endif %}
+{% if webserver != "tomcat7" %}
+export CATALINA_OPTS="$CATALINA_OPTS -XX:+UseStringDeduplication"  # Java 8+
 {% endif %}
 
 # https://logging.apache.org/log4j/2.x/security.html
