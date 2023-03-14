@@ -1,4 +1,4 @@
-- name: Upgrading all apt packages
+- name: Upgrading all apt packages to latest LTS versions
   hosts: dev stg prd
   tasks:
 
