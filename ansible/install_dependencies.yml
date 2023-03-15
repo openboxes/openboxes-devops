@@ -300,6 +300,17 @@
       vars:
         webserver: "{{ item }}"
 
+    - name: Increasing Tomcat cache size
+      ansible.builtin.lineinfile:
+        insertbefore: '^</Context>'
+        # prevent org.apache.catalina.webresources.Cache.getResource failures
+        line: '  <Resources cachingAllowed="true" cacheMaxSize="262144" /> <!-- ANSIBLE MANAGED -->'
+        path: "/var/lib/{{ item }}/conf/context.xml"
+        regexp: 'cacheMaxSize'
+      loop:
+        - tomcat7
+        - tomcat85
+
     #
     # The following two tasks ignore Tomcat best practices.
     #
