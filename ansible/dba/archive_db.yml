@@ -1,12 +1,18 @@
 - name: Archiving OpenBoxes database (please allow 5-10 minutes)
   hosts: dbservers
+  vars:
+    archive_file: openboxes.tgz
+    db_name: openboxes
+    db_username: root
+    use_sudo: false
+
   tasks:
 
     - name: Dumping mysql database (this can be slow)
       register: archive_db
       ansible.builtin.script:
         cmd: |
-          scripts/archive_db.bash {{ '-s' if use_sudo else '' }} \
+          ../scripts/archive_db.bash {{ '-s' if use_sudo else '' }} \
           -d {{ db_name }} -o {{ archive_file }} -u {{ db_username }}
       environment:
         DB_PASSWORD: "{{ db_users[db_username].password }}"
@@ -20,7 +26,7 @@
 
     - name: Fetching archive file from remote host (this can be slow, too)
       ansible.builtin.fetch:
-        dest: build/archive_db
+        dest: ../build/archive_db
         src: "{{ archive_file }}"
 
     - name: Deleting archive file from remote host after copying
@@ -28,8 +34,3 @@
         path: "{{ archive_file }}"
         state: absent
 
-  vars:
-    archive_file: openboxes.tgz
-    db_name: openboxes
-    db_username: root
-    use_sudo: false

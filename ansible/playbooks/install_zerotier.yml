@@ -1,0 +1,50 @@
+- name: Installing ZeroTier VPN
+  hosts: all
+  tasks:
+
+    - name: Adding ZeroTier apt key
+      ansible.builtin.apt_key:
+        # see https://www.zerotier.com/download/
+        url: https://raw.githubusercontent.com/zerotier/ZeroTierOne/master/doc/contact%40zerotier.com.gpg
+
+    - name: Adding ZeroTier apt repository
+      ansible.builtin.apt_repository:
+        repo: deb https://download.zerotier.com/debian/jammy jammy main
+
+    - name: Installing ZeroTier via apt
+      register: apt_install
+      ansible.builtin.apt:
+        cache_valid_time: 3600
+        install_recommends: true
+        state: latest
+        update_cache: true
+        pkg:
+          - zerotier-one
+
+    - name: Collecting apt install output
+      when: apt_install.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ apt_install.stdout_lines }}"
+          - "{{ apt_install.stderr_lines }}"
+
+    - name: Restarting ZeroTier service
+      ansible.builtin.systemd:
+        daemon_reload: true
+        enabled: true
+        name: zerotier-one
+        state: restarted
+
+    - name: Waiting for ZeroTier identity file to be generated
+      ansible.builtin.wait_for:
+        path: /var/lib/zerotier-one/identity.secret
+        state: present
+
+    - name: Checking ZeroTier public identity
+      register: zerotier_public_identity
+      ansible.builtin.shell:
+        cmd: cat /var/lib/zerotier-one/identity.public
+
+    - name: Collecting ZeroTier public identity
+      ansible.builtin.debug:
+        msg: "{{ zerotier_public_identity.stdout }}"

@@ -1,0 +1,65 @@
+# Requires `ansible-galaxy install newrelic.newrelic-infra`
+
+- name: Installing monitoring tools
+  hosts: all
+  tasks:
+
+    - name: Installing New Relic Infrastructure Agent
+      ansible.builtin.include_role:
+        name: newrelic.newrelic-infra
+      vars:
+        nrinfragent_config:
+          license_key: "{{ new_relic_api_key }}"
+
+    - name: Creating temporary download directory
+      register: tmp_download_dir
+      ansible.builtin.file:
+        group: root
+        mode: "0700"
+        owner: root
+        path: /tmp/ansible_managed_downloads
+        state: directory
+
+    - name: Downloading New Relic Tomcat Agents
+      ansible.builtin.get_url:
+        dest: "{{ item.dest }}"
+        mode: '0400'
+        url: "{{ item.url }}"
+      loop:
+        - dest: "{{ tmp_download_dir.path }}/newrelic-tomcat7.zip"
+          url: https://download.newrelic.com/newrelic/java-agent/newrelic-agent/6.5.4/newrelic-java.zip
+        - dest: "{{ tmp_download_dir.path }}/newrelic-tomcat85.zip"
+          url: https://download.newrelic.com/newrelic/java-agent/newrelic-agent/current/newrelic-java.zip
+
+    - name: Unpacking New Relic Tomcat Agents
+      ansible.builtin.unarchive:
+        dest: "{{ item.dest }}"
+        group: tomcat
+        owner: tomcat
+        remote_src: true
+        src: "{{ item.src }}"
+      loop:
+        - dest: /var/lib/tomcat7
+          src: "{{ tmp_download_dir.path }}/newrelic-tomcat7.zip"
+        - dest: /var/lib/tomcat85
+          src: "{{ tmp_download_dir.path }}/newrelic-tomcat85.zip"
+
+    - name: Configuring New Relic Tomcat Agents
+      ansible.builtin.replace:
+        path: "{{ item.file }}"
+        regexp: "{{ item.regexp }}"
+        replace: "{{ item.replace }}"
+      loop:
+        - file: /var/lib/tomcat7/newrelic/newrelic.yml
+          regexp: '^  app_name: .*$'
+          replace: "  # ANSIBLE MANAGED\n  app_name: {{ ansible_hostname }}.tomcat7"
+        - file: /var/lib/tomcat7/newrelic/newrelic.yml
+          regexp: '^  license_key: .*$'
+          replace: "  # ANSIBLE MANAGED\n  license_key: {{ new_relic_api_key }}"
+        - file: /var/lib/tomcat85/newrelic/newrelic.yml
+          regexp: '^  app_name: .*$'
+          replace: "  # ANSIBLE MANAGED\n  app_name: {{ ansible_hostname }}.tomcat85"
+        - file: /var/lib/tomcat85/newrelic/newrelic.yml
+          regexp: '^  license_key: .*$'
+          replace: "  # ANSIBLE MANAGED\n  license_key: {{ new_relic_api_key }}"
+      no_log: true

@@ -1,5 +1,10 @@
-- name: Restoring OpenBoxes database (please allow 10-30+ minutes)
-  hosts: dev dbstg
+- name: Resetting OpenBoxes database (please allow 15-20 minutes)
+  hosts: dev
+  vars:
+    db_name: openboxes
+    db_username: root
+    use_sudo: false
+
   tasks:
 
     - name: Ensuring explicit choice of host(s)
@@ -14,35 +19,21 @@
         name: tomcat
         state: stopped
 
-    - name: Uploading archive to remote host (this can be slow)
-      ansible.builtin.copy:
-        dest: "{{ archive_file | basename }}"
-        group: root
-        mode: '0400'
-        owner: root
-        src: "{{ archive_file }}"
-
-    - name: Importing mysql archive (this can be slow, too)
-      register: restore_db
+    - name: Clobbering mysql database
+      register: reset_db
       ansible.builtin.script:
         cmd: |
-          scripts/restore_db.bash \
-          {{ '-f' if force else '' }} {{ '-s' if use_sudo else '' }} \
-          -d {{ db_name }} -i {{ archive_file | basename }} -u {{ db_username }}
+          ../scripts/reset_db.bash \
+          {{ '-s' if use_sudo else '' }} -d {{ db_name }} -u {{ db_username }}
       environment:
         DB_PASSWORD: "{{ db_users[db_username].password }}"
 
     - name: Collecting script output
-      when: restore_db.stdout_lines is defined
+      when: reset_db.stdout_lines is defined
       ansible.builtin.debug:
         msg:
-          - "{{ restore_db.stdout_lines | regex_replace(db_users[db_username].password, '********') }}"
-          - "{{ restore_db.stderr_lines | regex_replace(db_users[db_username].password, '********') }}"
-
-    - name: Deleting archive file from remote host after loading
-      ansible.builtin.file:
-        path: "{{ archive_file | basename }}"
-        state: absent
+          - "{{ reset_db.stdout_lines | regex_replace(db_users[db_username].password, '********') }}"
+          - "{{ reset_db.stderr_lines | regex_replace(db_users[db_username].password, '********') }}"
 
     - name: Restarting MariaDB service
       ansible.builtin.systemd:
@@ -58,17 +49,10 @@
             daemon_reload: true
             name: tomcat
             state: restarted
-        - name: "Waiting for 200 from https://$remote_host{{ app_context }}"
+        - name: "Waiting for 200 from https://\{\{ ansible_fqdn \}\}{{ app_context }}"
           delay: 15
           retries: 60
           register: https_response
           until: https_response.status == 200
           ansible.builtin.uri:
             url: "https://{{ ansible_fqdn }}{{ app_context }}"
-
-  vars:
-    archive_file: build/archive_db/obnav/openboxes.tgz
-    db_name: openboxes
-    db_username: root
-    force: false
-    use_sudo: false

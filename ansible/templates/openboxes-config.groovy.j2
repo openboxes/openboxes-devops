@@ -4,7 +4,12 @@
 dataSource {
     password = "{{ db_users.openboxes.password }}"
     properties = {
-        autoReconnectForPools = true
+        /*
+         * autoReconnect sure sounds good, but, "this feature is not recommended".
+         * https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-connp-props-high-availability-and-clustering.html#cj-conn-prop_autoReconnect
+         */
+        autoReconnect = false
+        autoReconnectForPools = false
         autoSlowLog = {{ 'dev' in group_names or 'stg' in group_names | string | lower }}
         dumpQueriesOnException = true
         explainSlowQueries = {{ 'dev' in group_names or 'stg' in group_names | string | lower }}
