@@ -1,5 +1,13 @@
 # Ansible generated this file from {{ template_path }}; do not edit locally!
 {# If this comment is present, this is the template file: disregard this warning #}
 
-# [client-server]
-# port = 3306
+{% if remote_webserver is defined %}
+[client-server]
+port = 3306
+{% endif %}
+
+[mariadb]
+{% if remote_webserver is defined %}
+bind-address = {{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}
+{% endif %}
+log_error=/var/log/mysql/error.log

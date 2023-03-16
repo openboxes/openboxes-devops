@@ -21,12 +21,12 @@ upstream tomcat {
 }
 
 server {
-    access_log /var/log/nginx/tomcat-access.log;
+    access_log /var/log/nginx/access.log;
     add_header Strict-Transport-Security "max-age=63072000" always;
 
     client_max_body_size 384M;  # enable large uploads to tomcat manager
 
-    error_log /var/log/nginx/tomcat-error.log;
+    error_log /var/log/nginx/error.log;
 
     # dynamically gzip non-image data (OBS-1396)
     gzip on;
@@ -70,6 +70,10 @@ server {
 
     location /images {
         root /etc/nginx/static;
+    }
+
+    location = /status {
+        stub_status;
     }
 
     location / {
