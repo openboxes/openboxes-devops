@@ -362,6 +362,40 @@
         owner: root
         src: ../templates/my.cnf.j2
 
+    - name: Assigning root password for MariaDB
+      no_log: true
+      ansible.builtin.command:
+        argv:
+          - mysql
+          - -u
+          - root
+          - -p{{ db_users.root.password }}
+          - -e
+          - >-
+            ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ db_users.root.password }}';
+            FLUSH PRIVILEGES;
+
+    - name: Securing MariaDB via mysql_secure_installation
+      register: mysql_secure_installation
+      ansible.builtin.expect:
+        command: mysql_secure_installation
+        responses:
+          'Enter current password for root \(enter for none\):': "{{ db_users.root.password }}"
+          'Switch to unix_socket authentication \[Y/n\]': 'Y'
+          'Change the root password\? \[Y/n\]': 'n'
+          'Remove anonymous users\? \[Y/n\]': 'Y'
+          'Disallow root login remotely\? \[Y/n\]': 'Y'
+          'Remove test database and access to it\? \[Y/n\]': 'Y'
+          'Reload privilege tables now\? \[Y/n\]': 'Y'
+        timeout: 5
+      failed_when: '"Failed!" in mysql_secure_installation.stdout_lines'
+
+    - name: Collecting mysql_secure_installation output
+      when: mysql_secure_installation.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ mysql_secure_installation.stdout_lines | regex_replace(db_users.root.password, '********') }}"
+
     - name: Enabling remote DB access
       when: remote_webserver is defined
       block:

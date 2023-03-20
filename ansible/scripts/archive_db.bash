@@ -13,14 +13,14 @@ usage()
     echo >&2 '  -d <db_name> -- name of database to archive (default: "openboxes")'
     echo >&2 '  -o <archive_file> -- name of archive file (default: "<db_name>.tgz")'
     echo >&2 '  -p <mysql_path> -- path under which mysql is installed'
-    echo >&2 '  -u <db_user> -- name of database user (default: "root")'
+    echo >&2 '  -u <db_user> -- name of database user (default: "openboxes")'
 
     [ "$@" ] && exit "$@" || exit 2
 }
 
 archive_file=
 db_name='openboxes'
-db_user='root'
+db_user='openboxes'
 local_sudo=
 mysql_path=/usr/bin:/usr/local/mysql/bin
 declare -a ignored_tables
@@ -62,9 +62,9 @@ shift $((OPTIND-1))
 
 set +u
 [ "$#" -eq 0 ] || usage
-if [ ! "$DB_PASSWORD" ]
+if [ ! "$DB_USER_PASSWORD" ]
 then
-    echo >&2 'please set the DB_PASSWORD environment variable'
+    echo >&2 'please set the DB_USER_PASSWORD environment variable'
     exit 1
 fi
 set -u
@@ -83,7 +83,7 @@ cd "$scratch_dir"
 $local_sudo true
 
 echo -n "Counting products in database \`$db_name\` ..."
-product_cnt=$($local_sudo mysql -u "$db_user" -p"$DB_PASSWORD" "$db_name" -Nse 'select count(id) from product;')
+product_cnt=$($local_sudo mysql -u "$db_user" -p"$DB_USER_PASSWORD" "$db_name" -Nse 'select count(id) from product;')
 echo " $product_cnt"
 
 if [ ! "${do_copy_product_demand:-}" ]
@@ -107,7 +107,7 @@ then
 fi
 
 echo "Exporting schema (ignoring ${#ignored_tables[@]} tables) from database \`$db_name\` ..."
-$local_sudo mysqldump -u "$db_user" -p"$DB_PASSWORD" \
+$local_sudo mysqldump -u "$db_user" -p"$DB_USER_PASSWORD" \
     --opt --allow-keywords --events --no-data --routines --single-transaction \
     "${ignored_tables[@]:-}" "$db_name" \
     > "${sql_basename}-schema.sql"
@@ -124,7 +124,7 @@ then
 fi
 
 echo "Inspecting tables in database \`$db_name\` ..."
-nocopy_tables=$($local_sudo mysql -u "$db_user" -p"$DB_PASSWORD" -Nse 'select table_name from information_schema.tables where (table_schema like "'"$db_name"'") and (table_name like "%_dimension" or table_name like "%_fact" or table_name like "%_snapshot");')
+nocopy_tables=$($local_sudo mysql -u "$db_user" -p"$DB_USER_PASSWORD" -Nse 'select table_name from information_schema.tables where (table_schema like "'"$db_name"'") and (table_name like "%_dimension" or table_name like "%_fact" or table_name like "%_snapshot");')
 
 for it in $nocopy_tables
 do
@@ -133,7 +133,7 @@ do
 done
 
 echo "Exporting data (ignoring ${#ignored_tables[@]} tables) from database \`$db_name\` ..."
-$local_sudo mysqldump -u "$db_user" -p"$DB_PASSWORD" \
+$local_sudo mysqldump -u "$db_user" -p"$DB_USER_PASSWORD" \
     --opt --allow-keywords --no-create-info --single-transaction \
     "${ignored_tables[@]:-}" "$db_name" \
     > "${sql_basename}-data.sql"

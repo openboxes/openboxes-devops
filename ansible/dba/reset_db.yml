@@ -1,8 +1,7 @@
 - name: Resetting OpenBoxes database (please allow 15-20 minutes)
   hosts: dev
   vars:
-    db_name: openboxes
-    db_username: root
+    db_username: openboxes
     use_sudo: false
 
   tasks:
@@ -26,14 +25,19 @@
           ../scripts/reset_db.bash \
           {{ '-s' if use_sudo else '' }} -d {{ db_name }} -u {{ db_username }}
       environment:
-        DB_PASSWORD: "{{ db_users[db_username].password }}"
+        DB_ROOT_PASSWORD: "{{ db_users.root.password }}"
+        DB_USER_PASSWORD: "{{ db_users[db_username].password }}"
 
     - name: Collecting script output
       when: reset_db.stdout_lines is defined
       ansible.builtin.debug:
         msg:
-          - "{{ reset_db.stdout_lines | regex_replace(db_users[db_username].password, '********') }}"
-          - "{{ reset_db.stderr_lines | regex_replace(db_users[db_username].password, '********') }}"
+          - "{{ reset_db.stdout_lines\
+              | regex_replace(db_users.root.password, '********')\
+              | regex_replace(db_users[db_username].password, '********') }}"
+          - "{{ reset_db.stderr_lines\
+              | regex_replace(db_users.root.password, '********')\
+              | regex_replace(db_users[db_username].password, '********') }}"
 
     - name: Restarting MariaDB service
       ansible.builtin.systemd:
@@ -49,7 +53,7 @@
             daemon_reload: true
             name: tomcat
             state: restarted
-        - name: "Waiting for 200 from https://\{\{ ansible_fqdn \}\}{{ app_context }}"
+        - name: "Waiting for 200 from https://{{ '{{ ansible_fqdn }}' }}{{ app_context }}"
           delay: 15
           retries: 60
           register: https_response
