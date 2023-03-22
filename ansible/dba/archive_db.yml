@@ -2,8 +2,7 @@
   hosts: dbservers
   vars:
     archive_file: openboxes.tgz
-    db_name: openboxes
-    db_username: root
+    db_username: openboxes
     use_sudo: false
 
   tasks:
@@ -15,7 +14,7 @@
           ../scripts/archive_db.bash {{ '-s' if use_sudo else '' }} \
           -d {{ db_name }} -o {{ archive_file }} -u {{ db_username }}
       environment:
-        DB_PASSWORD: "{{ db_users[db_username].password }}"
+        DB_USER_PASSWORD: "{{ db_users[db_username].password }}"
 
     - name: Collecting script output
       when: archive_db.stdout_lines is defined

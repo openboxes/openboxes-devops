@@ -2,8 +2,7 @@
   hosts: dev dbstg
   vars:
     archive_file: ../build/archive_db/obnav/openboxes.tgz
-    db_name: openboxes
-    db_username: root
+    db_username: openboxes
     force: false
     use_sudo: false
 
@@ -37,7 +36,8 @@
           {{ '-f' if force else '' }} {{ '-s' if use_sudo else '' }} \
           -d {{ db_name }} -i {{ archive_file | basename }} -u {{ db_username }}
       environment:
-        DB_PASSWORD: "{{ db_users[db_username].password }}"
+        DB_ROOT_PASSWORD: "{{ db_users.root.password }}"
+        DB_USER_PASSWORD: "{{ db_users[db_username].password }}"
 
     - name: Collecting script output
       when: restore_db.stdout_lines is defined
