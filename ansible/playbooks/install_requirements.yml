@@ -113,7 +113,7 @@
       register: tmp_download_dir
       ansible.builtin.tempfile:
         state: directory
-        suffix: download
+        suffix: .download
 
     - name: Downloading Tomcat archives
       ansible.builtin.get_url:
@@ -166,7 +166,7 @@
       ansible.builtin.copy:
         dest: "/var/lib/{{ item }}"
         group: tomcat
-        mode: 'preserve'
+        mode: preserve
         owner: tomcat
         remote_src: true
         src: "/opt/{{ item }}/conf"
@@ -178,7 +178,7 @@
       ansible.builtin.copy:
         dest: "/var/lib/{{ item[0] }}/webapps"
         group: tomcat
-        mode: 'preserve'
+        mode: preserve
         owner: tomcat
         remote_src: true
         src: "/opt/{{ item[0] }}/webapps/{{ item[1] }}"
