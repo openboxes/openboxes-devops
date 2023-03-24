@@ -16,6 +16,10 @@ dev:
   hosts:
     obdev:
       ansible_host: 10.160.28.12
+    obnavtest1:
+      ansible_host: 10.160.28.16
+    obnavtest2:
+      ansible_host: 10.160.28.17
 
 dbservers:
   children:

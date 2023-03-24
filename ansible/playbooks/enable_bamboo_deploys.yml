@@ -1,3 +1,5 @@
+# Requires `ansible-galaxy collection install ansible.posix`
+
 - name: Enabling bamboo remote restart
   hosts: all
   tasks:
@@ -38,6 +40,15 @@
         - line: 'bamboo ALL=(ALL) NOPASSWD:/sbin/service,/usr/sbin/service'
           regexp: '^bamboo'
 
+    - name: Adding restart-tomcat script for Bamboo
+      when: webserver is defined
+      ansible.builtin.template:
+        dest: /opt/restart-tomcat.sh
+        group: staff
+        mode: '0550'
+        owner: bamboo
+        src: ../templates/restart-tomcat.sh.j2
+
     #
     # The following task ignores Tomcat best practices, but bamboo needs it to work.
     #
@@ -57,11 +68,10 @@
         - tomcat7
         - tomcat85
 
-    - name: Adding restart-tomcat script for Bamboo
+    - name: Restarting Tomcat service on web-serving hosts
       when: webserver is defined
-      ansible.builtin.template:
-        dest: /opt/restart-tomcat.sh
-        group: staff
-        mode: '0550'
-        owner: bamboo
-        src: ../templates/restart-tomcat.sh.j2
+      ansible.builtin.systemd:
+        daemon_reload: true
+        enabled: true
+        name: tomcat
+        state: restarted

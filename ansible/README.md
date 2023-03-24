@@ -6,8 +6,8 @@ The `playbooks` directory contains Ansible playbooks for the following tasks:
 
 - `upgrade_packages.yml` runs a series of apt commands to bring a host running Ubuntu 22.04 LTS up to date.
 - `install_requirements.yml` installs and configures the software and services OpenBoxes requires.
-- `configure_bamboo.yml` configures a host so that Bamboo can deploy OpenBoxes to it (optional).
-- `configure_pih_users.yml` configures a host to allow PIH developer access (optional).
+- `enable_bamboo_deploys.yml` configures a host so that Bamboo can deploy OpenBoxes to it (optional).
+- `enable_pih_user_access.yml` configures a host to allow PIH developer access (optional).
 - `install_newrelic.yml` installs New Relic monitoring on a host (optional).
 - `install_zerotier.yml` installs ZeroTier VPN software on a host (optional).
 
@@ -41,10 +41,11 @@ $ ansible-playbook -i inventories/pih_rimu.yml playbooks/upgrade_packages.yml -l
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_requirements.yml -l obdev1
 
 # Install optional capabilities
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/configure_bamboo.yml -l obdev1
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/configure_pih_users.yml -l obdev1
+$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enable_bamboo_deploys.yml -l obdev1
+$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enable_pih_user_access.yml -l obdev1
+$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_bamboo_remote_agent.yml -l obdev1
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_newrelic.yml -l obdev1
-$ ansible-playbook -i inventories/pih_rimu.yml playbooks/install_zerotier.yml -l obdev1
+$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_zerotier.yml -l obdev1
 
 # Extract database data from the production instance in Azure
 $ ansible-playbook -e @secrets/vault -i inventories/pih_azure.yml dba/archive_db.yml -l obnav

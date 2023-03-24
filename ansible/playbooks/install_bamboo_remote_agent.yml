@@ -1,0 +1,292 @@
+# https://confluence.atlassian.com/bamboo0802/bamboo-remote-agent-installation-guide-1103432753.html
+
+- name: Installing bamboo remote agent
+  hosts: dev stg
+  tasks:
+
+    - name: Installing jq with apt
+      register: apt_install
+      ansible.builtin.apt:
+        cache_valid_time: 3600
+        install_recommends: true
+        state: latest
+        update_cache: true
+        pkg:
+          - jq
+
+    - name: Collecting apt install output
+      when: apt_install.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ apt_install.stdout_lines }}"
+          - "{{ apt_install.stderr_lines }}"
+
+    - name: Disabling agents associated with host
+      register: disable_agents
+      ansible.builtin.script:
+        cmd: |
+          ../scripts/configure_remote_agents.bash -p {{ ansible_fqdn }} \
+          -u {{ bamboo_secrets.username }} {{ bamboo.server_url }} disable
+      environment:
+        BAMBOO_PASSWORD: "{{ bamboo_secrets.password }}"
+
+    - name: Collecting script output
+      when: disable_agents.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ disable_agents.stdout_lines }}"
+          - "{{ disable_agents.stderr_lines }}"
+
+    - name: Checking if bamboo remote agent is already installed
+      register: bamboo_remote_agent_wrapper
+      ansible.builtin.stat:
+        path: "{{ bamboo.remote_agent_home }}/bin/wrapper"
+
+    - name: Stopping bamboo remote agent service
+      when: bamboo_remote_agent_wrapper.stat.exists
+      ansible.builtin.systemd:
+        daemon_reload: false
+        enabled: false
+        name: bamboo-remote-agent
+        state: stopped
+
+    - name: Deleting cache directories
+      ansible.builtin.file:
+        group: staff
+        owner: bamboo
+        path: "/home/bamboo/{{ item }}"
+        state: absent
+      loop:
+        - .cache
+        - .config
+        - .gradle
+        - .grails
+        - .ivy2
+        - .npm
+        - .npmrc
+
+    - name: Emptying bamboo remote agent working directory
+      ansible.builtin.file:
+        group: staff
+        mode: '0750'
+        owner: bamboo
+        path: "{{ bamboo.remote_agent_home }}"
+        state: "{{ item }}"
+      loop:
+        - absent
+        - directory
+
+    - name: Creating build_tools directory
+      ansible.builtin.file:
+        group: staff
+        mode: '0750'
+        owner: bamboo
+        path: "{{ bamboo.remote_agent_home }}/build_tools"
+        state: directory
+
+    - name: Downloading bamboo remote agent
+      ansible.builtin.get_url:
+        dest: "{{ bamboo.remote_agent_home }}/atlassian-bamboo-agent-installer.jar"
+        group: staff
+        mode: '0400'
+        owner: bamboo
+        timeout: 30
+        # to find this URL, point a browser to {{ bamboo.server_url }}/admin/agent/addRemoteAgent.action
+        url: "{{ bamboo.server_url }}/agentServer/agentInstaller/atlassian-bamboo-agent-installer-{{ bamboo.server_version }}.jar"
+
+    - name: Installing bamboo remote agent
+      become: true
+      become_user: bamboo
+      ansible.builtin.command:
+        argv:
+          - /usr/lib/jvm/zulu8-ca-amd64/bin/java
+          - "-Dbamboo.home={{ bamboo.remote_agent_home }}"
+          - -jar
+          - atlassian-bamboo-agent-installer.jar
+          - "{{ bamboo.server_url }}/agentServer"
+          - install
+        chdir: "{{ bamboo.remote_agent_home }}"
+
+    - name: Downloading Grails SDKs
+      ansible.builtin.unarchive:
+        dest: "{{ bamboo.remote_agent_home }}/build_tools"
+        group: staff
+        owner: bamboo
+        remote_src: true
+        src: "https://github.com/grails/grails-core/releases/download/v{{ item }}/grails-{{ item }}.zip"
+      loop:
+        - '1.3.9'
+        - '3.3.16'
+
+    - name: Downloading Node.js
+      ansible.builtin.unarchive:
+        dest: "{{ bamboo.remote_agent_home }}/build_tools"
+        group: staff
+        owner: bamboo
+        remote_src: true
+        src: "https://nodejs.org/download/release/v{{ item }}/node-v{{ item }}-linux-x64.tar.xz"
+      loop:
+        - '14.21.3'
+
+    - name: Removing write permission from build_tools
+      ansible.builtin.file:
+        mode: 'a-w'
+        path: "{{ bamboo.remote_agent_home }}/build_tools"
+        recurse: true
+
+    # https://confluence.atlassian.com/bamboo/configuring-remote-agent-capabilities-using-bamboo-capabilities-properties-289276849.html
+    - name: Creating bamboo-capabilities.properties file
+      register: bamboo_capabilities_properties
+      ansible.builtin.file:
+        group: staff
+        mode: '0400'
+        owner: bamboo
+        path: "{{ bamboo.remote_agent_home }}/bin/bamboo-capabilities.properties"
+        state: touch
+
+    - name: Advertising ssh capabilities to bamboo
+      ansible.builtin.lineinfile:
+        insertafter: EOF
+        line: 'system.builder.command.ssh=/usr/bin/ssh'
+        path: "{{ bamboo_capabilities_properties.dest }}"
+
+    - name: Advertising Grails SDK capabilities to bamboo
+      ansible.builtin.lineinfile:
+        insertafter: EOF
+        line: "system.builder.grailsBuilder.Grails\\ {{ item.major_minor }}=/home/bamboo/remote-agent/build_tools/grails-{{ item.major_minor_patch }}"
+        path: "{{ bamboo_capabilities_properties.dest }}"
+      loop:
+        - major_minor: '1.3'
+          major_minor_patch: '1.3.9'
+        - major_minor: '3.3'
+          major_minor_patch: '3.3.16'
+
+    - name: Advertising Node.js capabilities to bamboo
+      ansible.builtin.lineinfile:
+        insertafter: EOF
+        line: "system.builder.node.Node.js\\ {{ item.major_minor }}=/home/bamboo/remote-agent/build_tools/node-v{{ item.major_minor_patch }}-linux-x64/bin/node"
+        path: "{{ bamboo_capabilities_properties.dest }}"
+      loop:
+        - major_minor: '14.21'
+          major_minor_patch: '14.21.3'
+
+    - name: Checking Java 7 release
+      register: java7_release
+      ansible.builtin.shell:
+        cmd: |
+          set -eo pipefail
+          /usr/lib/jvm/zulu7-ca-amd64/bin/java -version 2>&1 | grep version | cut -d' ' -f3 | tr -d '"'
+      args:
+        executable: /usr/bin/bash
+
+    - name: Checking Java 8 release
+      register: java8_release
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          /usr/lib/jvm/zulu8-ca-amd64/bin/java -version 2>&1 | grep version | cut -d' ' -f3 | tr -d '"'
+      args:
+        executable: /usr/bin/bash
+
+    - name: Advertising java capabilities to bamboo
+      ansible.builtin.lineinfile:
+        insertafter: EOF
+        line: "system.jdk.JDK\\ {{ item.version }}={{ item.path }}"
+        path: "{{ bamboo_capabilities_properties.dest }}"
+      loop:
+        - version: '1.7'
+          path: /usr/lib/jvm/zulu7-ca-amd64
+        - version: "{{ java7_release.stdout_lines | join('') }}"
+          path: /usr/lib/jvm/zulu7-ca-amd64
+        - version: '1.8'
+          path: /usr/lib/jvm/zulu8-ca-amd64
+        - version: "{{ java8_release.stdout_lines | join('') }}"
+          path: /usr/lib/jvm/zulu8-ca-amd64
+
+    - name: Ensuring .ssh directory exists
+      ansible.builtin.file:
+        dest: /home/bamboo/.ssh
+        mode: '0700'
+        owner: bamboo
+        state: directory
+
+    - name: Installing private ssh key
+      ansible.builtin.copy:
+        dest: /home/bamboo/.ssh/bamboo_ed25519
+        mode: '0600'
+        owner: bamboo
+        src: ../secrets/bamboo_ed25519
+
+    - name: Creating ssh config file
+      register: ssh_config
+      ansible.builtin.file:
+        group: staff
+        mode: '0400'
+        owner: bamboo
+        path: /home/bamboo/.ssh/config
+        state: touch
+
+    - name: Configuring ssh
+      ansible.builtin.blockinfile:
+        insertafter: EOF
+        marker: '# {mark} ANSIBLE MANAGED BLOCK'
+        path: "{{ ssh_config.dest }}"
+        block: |
+          Host *
+            AddKeysToAgent yes
+            HashKnownHosts no
+            IdentityFile ~/.ssh/bamboo_ed25519
+
+    - name: Creating known_hosts file
+      register: known_hosts
+      ansible.builtin.file:
+        group: staff
+        mode: '0600'
+        owner: bamboo
+        path: /home/bamboo/.ssh/known_hosts
+        state: touch
+
+    - name: Populating known_hosts with deployment targets
+      ansible.builtin.blockinfile:
+        insertafter: EOF
+        marker: '# {mark} ANSIBLE MANAGED BLOCK'
+        path: "{{ known_hosts.dest }}"
+        block: "{{ lookup('ansible.builtin.file', '../secrets/known_hosts') }}"
+
+    - name: Creating systemd service for bamboo remote agent
+      ansible.builtin.template:
+        dest: /etc/systemd/system/bamboo-remote-agent.service
+        group: root
+        mode: '0444'
+        owner: root
+        src: ../templates/bamboo-remote-agent.service.j2
+
+    - name: Restarting bamboo remote agent service
+      ansible.builtin.systemd:
+        daemon_reload: true
+        enabled: true
+        name: bamboo-remote-agent
+        state: restarted
+
+    - name: Waiting for remote agent to fully connect
+      ansible.builtin.wait_for:
+        path: "{{ bamboo.remote_agent_home }}/logs/atlassian-bamboo.log"
+        search_regex: 'ready to receive builds'
+
+    - name: Attaching agent to projects
+      register: attach_agents
+      when: bamboo.project_ids is defined
+      ansible.builtin.script:
+        cmd: |
+          ../scripts/configure_remote_agents.bash -p {{ ansible_fqdn }} \
+          -u {{ bamboo_secrets.username }} {{ bamboo.server_url }} {{ item }}
+      environment:
+        BAMBOO_PASSWORD: "{{ bamboo_secrets.password }}"
+      loop: "{{ bamboo.project_ids }}"
+
+    - name: Collecting script output
+      when: attach_agents.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ attach_agents.stdout_lines }}"
+          - "{{ attach_agents.stderr_lines }}"
