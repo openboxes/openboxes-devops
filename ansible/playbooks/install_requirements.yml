@@ -262,6 +262,15 @@
         owner: root
         src: ../templates/tomcat.service.j2
 
+    - name: Configuring Tomcat log rotation
+      when: webserver is defined
+      ansible.builtin.template:
+        dest: /etc/logrotate.d/tomcat
+        group: root
+        mode: '0444'
+        owner: root
+        src: ../templates/tomcat.logrotate.j2
+
     - name: Creating required Nginx directories
       ansible.builtin.file:
         group: nginx
@@ -356,7 +365,7 @@
 
     - name: Configuring MariaDB
       ansible.builtin.template:
-        dest: /etc/mysql/conf.d/my.cnf
+        dest: /etc/mysql/mariadb.conf.d/70-openboxes.cnf
         group: root
         mode: '0444'
         owner: root
@@ -399,15 +408,6 @@
     - name: Enabling remote DB access
       when: remote_webserver is defined
       block:
-        - name: Enabling remote access in my.cnf
-          # https://mariadb.com/kb/en/configuring-mariadb-for-remote-client-access/
-          ansible.builtin.blockinfile:
-            block: |
-              [mysqld]
-              bind-address=0.0.0.0
-              skip-networking=0
-            insertafter: 'EOF'
-            path: /etc/mysql/my.cnf
         - name: Adding 'openboxes'@'$remote_webserver' to user table
           no_log: true
           ansible.builtin.command:
