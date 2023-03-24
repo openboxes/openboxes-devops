@@ -6,6 +6,7 @@
 
     # https://docs.newrelic.com/install/mysql/?dropdown1=linux
     - name: Creating mysql user for New Relic
+      changed_when: true
       no_log: true
       ansible.builtin.command:
         argv:
@@ -49,6 +50,7 @@
       ansible.builtin.copy:
         dest: "/etc/newrelic-infra/integrations.d/{{ item }}"
         group: root
+        mode: 'preserve'
         owner: root
         remote_src: true
         src: "/etc/newrelic-infra/integrations.d/{{ item }}.sample"
@@ -92,6 +94,7 @@
       ansible.builtin.copy:
         dest: "/etc/newrelic-infra/logging.d/{{ item }}"
         group: root
+        mode: 'preserve'
         owner: root
         remote_src: true
         src: "/etc/newrelic-infra/logging.d/{{ item }}.example"
@@ -101,12 +104,9 @@
 
     - name: Creating temporary download directory
       register: tmp_download_dir
-      ansible.builtin.file:
-        group: root
-        mode: '0700'
-        owner: root
-        path: /tmp/ansible_managed_downloads
+      ansible.builtin.tempfile:
         state: directory
+        suffix: download
 
     - name: Downloading New Relic Tomcat agents
       ansible.builtin.get_url:

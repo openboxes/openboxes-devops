@@ -7,7 +7,6 @@
   tasks:
 
     - name: Ensuring explicit choice of host(s)
-      run_once: true
       when: ansible_limit is not defined
       ansible.builtin.fail:
         msg: "you must use -l or --limit! If you really want to use all hosts, use -l 'all'"
@@ -32,11 +31,11 @@
       when: reset_db.stdout_lines is defined
       ansible.builtin.debug:
         msg:
-          - "{{ reset_db.stdout_lines\
-              | regex_replace(db_users.root.password, '********')\
+          - "{{ reset_db.stdout_lines \
+              | regex_replace(db_users.root.password, '********') \
               | regex_replace(db_users[db_username].password, '********') }}"
-          - "{{ reset_db.stderr_lines\
-              | regex_replace(db_users.root.password, '********')\
+          - "{{ reset_db.stderr_lines \
+              | regex_replace(db_users.root.password, '********') \
               | regex_replace(db_users[db_username].password, '********') }}"
 
     - name: Restarting MariaDB service
@@ -53,7 +52,7 @@
             daemon_reload: true
             name: tomcat
             state: restarted
-        - name: "Waiting for 200 from https://{{ '{{ ansible_fqdn }}' }}{{ app_context }}"
+        - name: "Waiting for 200 from https://...{{ app_context }}"
           delay: 15
           retries: 60
           register: https_response

@@ -23,7 +23,7 @@ db_name='openboxes'
 db_user='openboxes'
 local_sudo=
 mysql_path=/usr/bin:/usr/local/mysql/bin
-declare -a ignored_tables
+declare -a ignored_tables=()
 
 while getopts 'd:ho:p:r:su:P' o
 do

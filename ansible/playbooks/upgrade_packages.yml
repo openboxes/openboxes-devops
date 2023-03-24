@@ -5,7 +5,7 @@
     - name: Ensuring host is running Ubuntu 22.04 LTS
       when: ansible_facts.distribution_release != 'jammy' or ansible_facts.distribution_version != '22.04'
       ansible.builtin.fail:
-        msg: "this playbook only runs on Ubuntu 22.04 LTS"
+        msg: this playbook requires Ubuntu 22.04 LTS
 
     - name: Running apt full-upgrade
       register: apt_upgrade

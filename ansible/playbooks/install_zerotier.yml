@@ -41,8 +41,9 @@
         state: present
 
     - name: Checking ZeroTier public identity
+      changed_when: false
       register: zerotier_public_identity
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: cat /var/lib/zerotier-one/identity.public
 
     - name: Collecting ZeroTier public identity
@@ -50,6 +51,7 @@
         msg: "{{ zerotier_public_identity.stdout }}"
 
     - name: Connecting to ZeroTier VPNs
+      changed_when: true
       ansible.builtin.shell:
         cmd: |
           zerotier-cli leave {{ item | quote }}

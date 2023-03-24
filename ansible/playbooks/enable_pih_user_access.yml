@@ -111,7 +111,7 @@
     # https://tomcat.apache.org/tomcat-8.5-doc/manager-howto.html#Configuring_Manager_Application_Access
     #
     - name: Injecting Tomcat user for supply chain team
-      ansible.builtin.lineinfile:
+      ansible.builtin.lineinfile:  # noqa: yaml[line-length]
         insertbefore: '^</tomcat-users>'
         # originally from obnav.pih-emr.org:/etc/tomcat7/tomcat-users.xml
         line: '  <user username="supplychain" password="{{ tomcat_users.supplychain.password }}" roles="admin,admin-gui,manager-gui,manager-script,tomcat" /> <!-- ANSIBLE MANAGED -->'
