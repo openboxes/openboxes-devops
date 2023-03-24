@@ -32,4 +32,3 @@
       ansible.builtin.file:
         path: "{{ archive_file }}"
         state: absent
-

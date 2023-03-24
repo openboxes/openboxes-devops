@@ -10,7 +10,7 @@
     - name: Ensuring host is running Ubuntu 22.04 LTS
       when: ansible_facts.distribution_release != 'jammy' or ansible_facts.distribution_version != '22.04'
       ansible.builtin.fail:
-        msg: "this playbook only runs on Ubuntu 22.04 LTS"
+        msg: this playbook requires Ubuntu 22.04 LTS
 
     - name: Removing apache2 if present
       register: apt_uninstall
@@ -67,6 +67,9 @@
           - "{{ apt_install.stderr_lines }}"
 
     - name: Installing dependencies with snap
+      changed_when: >-
+        'is already installed' not in snap_install.stderr and
+        'has no updates' not in snap_install.stderr
       register: snap_install
       ansible.builtin.shell:
         cmd: |
@@ -108,12 +111,9 @@
 
     - name: Creating temporary download directory
       register: tmp_download_dir
-      ansible.builtin.file:
-        group: root
-        mode: "0700"
-        owner: root
-        path: /tmp/ansible_managed_downloads
+      ansible.builtin.tempfile:
         state: directory
+        suffix: download
 
     - name: Downloading Tomcat archives
       ansible.builtin.get_url:
@@ -123,7 +123,7 @@
         url: "{{ item.url }}"
       loop:
         - dest: "{{ tmp_download_dir.path }}/tomcat7.tgz"
-          url: https://archive.apache.org/dist/tomcat/tomcat-7/v{{ tomcat7_version }}/bin/apache-tomcat-{{ tomcat7_version }}.tar.gz
+          url: "https://archive.apache.org/dist/tomcat/tomcat-7/v{{ tomcat7_version }}/bin/apache-tomcat-{{ tomcat7_version }}.tar.gz"
         - dest: "{{ tmp_download_dir.path }}/tomcat85.tgz"
           url: "https://archive.apache.org/dist/tomcat/tomcat-8/v{{ tomcat8_version }}/bin/apache-tomcat-{{ tomcat8_version }}.tar.gz"
 
@@ -166,6 +166,7 @@
       ansible.builtin.copy:
         dest: "/var/lib/{{ item }}"
         group: tomcat
+        mode: 'preserve'
         owner: tomcat
         remote_src: true
         src: "/opt/{{ item }}/conf"
@@ -177,6 +178,7 @@
       ansible.builtin.copy:
         dest: "/var/lib/{{ item[0] }}/webapps"
         group: tomcat
+        mode: 'preserve'
         owner: tomcat
         remote_src: true
         src: "/opt/{{ item[0] }}/webapps/{{ item[1] }}"
@@ -308,8 +310,9 @@
         url: https://letsencrypt.org/certs/lets-encrypt-x3-cross-signed.pem
 
     - name: Sprinkling Certbot pixie dust over Nginx config
+      changed_when: true
       register: certbot
-      ansible.builtin.shell:
+      ansible.builtin.command:
         cmd: "/snap/bin/certbot -m {{ mail_address }} -nv --agree-tos --domains {{ ansible_fqdn }} --nginx"
 
     - name: Collecting Certbot output
@@ -372,6 +375,7 @@
         src: ../templates/my.cnf.j2
 
     - name: Assigning root password for MariaDB
+      changed_when: true
       no_log: true
       ansible.builtin.command:
         argv:
@@ -406,22 +410,21 @@
           - "{{ mysql_secure_installation.stdout_lines | regex_replace(db_users.root.password, '********') }}"
 
     - name: Enabling remote DB access
+      changed_when: true
+      no_log: true
       when: remote_webserver is defined
-      block:
-        - name: Adding 'openboxes'@'$remote_webserver' to user table
-          no_log: true
-          ansible.builtin.command:
-            argv:
-              - mysql
-              - -u
-              - root
-              - -p{{ db_users.root.password }}
-              - -e
-              - >-
-                GRANT ALL PRIVILEGES ON `{{ db_name }}`.*
-                TO 'openboxes'@'{{ remote_webserver }}'
-                IDENTIFIED BY '{{ db_users.openboxes.password }}';
-                FLUSH PRIVILEGES;
+      ansible.builtin.command:
+        argv:
+          - mysql
+          - -u
+          - root
+          - -p{{ db_users.root.password }}
+          - -e
+          - >-
+            GRANT ALL PRIVILEGES ON `{{ db_name }}`.*
+            TO 'openboxes'@'{{ remote_webserver }}'
+            IDENTIFIED BY '{{ db_users.openboxes.password }}';
+            FLUSH PRIVILEGES;
 
     - name: Restarting MariaDB service
       ansible.builtin.systemd:

@@ -125,4 +125,3 @@ rimu:
     mail_host: smtp.sendgrid.net
     mail_port: 587
     mail_username: apikey
-

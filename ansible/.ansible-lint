@@ -1,0 +1,3 @@
+skip_list:
+  - no-relative-paths
+  - package-latest
