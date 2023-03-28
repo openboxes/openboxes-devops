@@ -41,6 +41,7 @@ $ ansible-playbook -i inventories/pih_rimu.yml playbooks/upgrade_packages.yml -l
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_requirements.yml -l obdev1
 
 # Install optional capabilities
+$ ansible-playbook -i inventories/pih_rimu.yml playbooks/apply_security_rules.yml -l obdev1
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enable_bamboo_deploys.yml -l obdev1
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enable_pih_user_access.yml -l obdev1
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_zerotier.yml -l obdev1
