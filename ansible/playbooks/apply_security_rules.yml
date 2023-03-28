@@ -1,0 +1,43 @@
+# Requires `ansible-galaxy collection install community.general`
+
+- name: Applying security measures
+  hosts: all
+  tasks:
+    - name: Enabling ssh, http and https access
+      community.general.ufw:
+        port: "{{ item }}"
+        proto: tcp
+        rule: allow
+      loop:
+        - 22
+        - 80
+        - 443
+
+    - name: Enabling remote DB access from finance hosts
+      when: finance_hosts is defined
+      community.general.ufw:
+        port: 3306
+        proto: tcp
+        rule: allow
+        src: "{{ item }}"
+      loop: "{{ finance_hosts }}"
+
+    - name: Enabling remote DB access from paired webserver
+      when: remote_webserver is defined
+      community.general.ufw:
+        port: 3306
+        proto: tcp
+        rule: allow
+        src: "{{ remote_webserver }}"
+
+    - name: Limiting brute-force ssh login attempts
+      community.general.ufw:
+        port: 22
+        proto: tcp
+        rule: limit
+
+    - name: Enabling firewall, with logging
+      community.general.ufw:
+        logging: 'on'
+        policy: reject
+        state: enabled
