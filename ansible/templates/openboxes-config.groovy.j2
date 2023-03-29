@@ -21,9 +21,9 @@ dataSource {
         useSSL = true
         verifyServerCertificate = true
     }
-    {% if db_url is defined %}
+{% if db_url is defined %}
     url = "{{ db_url }}"
-    {% endif %}
+{% endif %}
     username = 'openboxes'
 }
 
@@ -60,26 +60,7 @@ grails.plugins.raven.active = false
 
 grails.serverURL = "https://{{ ansible_fqdn }}{{ app_context }}"
 
-hibernate.cache.use_second_level_cache = false
-
 hipaaspace.api.key = "{{ hipaaspace_api_key }}"
-
-openboxes.api.pagination.enabled = true
-openboxes.api.pagination.pageSize = 10
-openboxes.bom.enabled = false
-openboxes.forecasting.enabled = true
-openboxes.inventorySnapshot.batchSize = 100
-openboxes.jobs.buildSummaryTablesJob.cronExpression = '0 0 * * * ?'
-openboxes.jobs.buildSummaryTablesJob.enabled = true
-openboxes.jobs.calculateHistoricalQuantityJob.enabled = false
-openboxes.jobs.calculateQuantityJob.cronExpression = '0 20 * * * ?'
-openboxes.jobs.calculateQuantityJob.enabled = true
-openboxes.jobs.refreshDemandDataJob.cronExpression = '0 40 0 * * ?'
-openboxes.jobs.refreshDemandDataJob.enabled = true
-openboxes.jobs.refreshProductAvailabilityJob.delayInMilliseconds = 30000
-openboxes.jobs.refreshTransactionFactJob.cronExpression = '0 0 0 * * ?'
-openboxes.jobs.refreshTransactionFactJob.enabled = true
-openboxes.ldap.enabled = false
 
 {% if 'dev' in group_names %}
 openboxes.logo.label = 'testing'
@@ -96,10 +77,15 @@ openboxes.mail.errors.recipients = ['openboxes@pih.org']
 openboxes.mail.errors.enabled = false
 {% endif %}
 
-openboxes.purchasing.approval.enabled = true
-openboxes.purchasing.updateUnitPrice.enabled = true
-openboxes.purchasing.updateUnitPrice.method = org.pih.warehouse.core.UpdateUnitPriceMethodCode.LAST_PURCHASE_PRICE
-openboxes.refreshAnalyticsDataOnStartup.enabled = false
+openboxes.megamenu.customLinks.enabled = true
+openboxes.megamenu.customLinks.content = [
+    [label: 'Request item creation', href: 'https://goo.gl/forms/x1red4Q7fL0ThH253', target: '_blank'],
+    [label: 'Training Videos', href: 'https://openboxes.com/tutorials/', target: '_blank']
+]
+openboxes.megamenu.customLinks.menuItems = [
+    [label: 'requestItemCreation.label', defaultLabel: 'Request item creation', href: 'https://goo.gl/forms/x1red4Q7fL0ThH253', target: '_blank'],
+        [label: 'trainingVideos.label', defaultLabel: 'Training Videos', href: 'https://openboxes.com/tutorials/', target: '_blank']
+]
 
 openboxes.report.logo.url = "https://{{ ansible_fqdn }}/images/pih_2020_logo_full.png"
 
@@ -127,3 +113,32 @@ org.quartz.threadPool.threadPriority = 1
 quartz.threadPool.threadPriority = 1
 
 server.contextPath = "{{ app_context }}"
+
+/*
+ * These fields, set in obnav.pih-emr.org:/opt/tomcat/.grails/openboxes-config.*,
+ * override default values in grails-app/conf/Config.groovy but have little to
+ * do with host-specific configuration. Once RIMU hosts are fully validated, we
+ * should consider migrating them back to the main repository. OBS-1419
+ */
+hibernate.cache.use_second_level_cache = false
+openboxes.cycleCount.additionalColumns = [
+    'Physical lot/serial number': null,
+    'Physical bin location': null,
+    'Physical expiration date': null,
+    'Physical quantity': null,
+    'Was bin location updated in OpenBoxes?': null,
+    'Was quantity, lot/serial, and expiration date updated in OpenBoxes?': null,
+    'Comment': null,
+]
+openboxes.dashboard.newsSummary.enabled = false
+openboxes.dashboard.receiptSummary.enabled = false
+openboxes.dashboard.shipmentSummary.enabled = false
+openboxes.identifier.product.format = 'LLNNN'  // overrides Constants.DEFAULT_PRODUCT_NUMBER_FORMAT='LLNN'
+openboxes.identifier.purchaseOrder.format = "\${destinationPartyCode}PO\${sequenceNumber}"
+openboxes.jobs.calculateQuantityJob.cronExpression = '0 0 0/6 * * ?'
+openboxes.jobs.refreshDemandDataJob.cronExpression = '0 30 0 * * ?'
+openboxes.locale.custom.enabled = true
+openboxes.purchasing.approval.enabled = true
+openboxes.purchasing.updateUnitPrice.enabled = true
+openboxes.refreshAnalyticsDataOnStartup.enabled = false
+openboxes.stockCard.consumption.reasonCodes = org.pih.warehouse.core.ReasonCode.list()
