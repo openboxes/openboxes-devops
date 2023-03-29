@@ -101,7 +101,7 @@
           - "{{ snap_install.stdout_lines }}"
           - "{{ snap_install.stderr_lines }}"
 
-    - name: Adding tomcat group
+    - name: Adding groups
       ansible.builtin.group:
         gid: "{{ item.gid }}"
         name: "{{ item.name }}"
@@ -371,6 +371,28 @@
         msg:
           - "{{ certbot.stdout_lines }}"
           - "{{ certbot.stderr_lines }}"
+
+    # https://eff-certbot.readthedocs.io/en/stable/using.html#where-are-my-certificates
+    - name: Enabling services to read Certbot certificates after they drop privileges
+      ansible.builtin.file:
+        path: "{{ item }}"
+        mode: '0755'
+      loop:
+        - /etc/letsencrypt/archive
+        - /etc/letsencrypt/live
+
+    - name: Enabling mysql group to read private Certbot keys
+      ansible.builtin.file:
+        group: mysql
+        mode: '0640'
+        path: "/etc/letsencrypt/live/{{ ansible_fqdn }}/privkey.pem"
+
+    - name: Reminding mysql to reload Certbot keys weekly
+      ansible.builtin.cron:
+        job: mysqladmin flush-ssl
+        name: mysqladmin flush-ssl
+        special_time: weekly
+        user: mysql
 
     # this step must go *after* certbot runs (certbot will overwrite it otherwise)
     - name: Enabling HTTP/2 in Nginx
