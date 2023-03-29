@@ -22,6 +22,7 @@ upstream tomcat {
 
 server {
     access_log /var/log/nginx/access.log;
+    add_header Content-Security-Policy "upgrade-insecure-requests";
     add_header Strict-Transport-Security "max-age=63072000" always;
 
     client_max_body_size 384M;  # enable large uploads to tomcat manager
@@ -57,16 +58,9 @@ server {
     proxy_read_timeout 1200;
     proxy_send_timeout 1200;
 
-    resolver 1.1.1.1;
+    resolver 1.1.1.1 1.0.0.1 valid=300s;
+    resolver_timeout 3s;
     server_name {{ ansible_fqdn }};
-
-    #
-    # We only set a few ssl_* parameters; for all others, defer to
-    # Certbot, which modifies this file after Ansible installs it.
-    #
-    ssl_stapling on;
-    ssl_stapling_verify on;
-    ssl_trusted_certificate /etc/nginx/certs/lets-encrypt-x3-cross-signed.pem;
 
     location /images {
         root /etc/nginx/static;
