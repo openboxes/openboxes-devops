@@ -21,6 +21,8 @@ database_prd:
       ansible_host: 74.50.49.138
       db_name: openboxes
       remote_webserver: 74.50.49.135
+  vars:
+    mysql_innodb_buffer_pool_size: 17179869184  # 16 GBytes
 
 prd:
   children:
@@ -52,6 +54,8 @@ database_stg:
       ansible_host: 74.50.49.124
       db_name: openboxes
       remote_webserver: 74.50.49.133
+  vars:
+    mysql_innodb_buffer_pool_size: 17179869184  # 16 GBytes
 
 stg:
   children:
@@ -84,6 +88,7 @@ dev:
     gc_threads: 3
     gpars_poolsize: 4
     mail_enabled: false
+    mysql_innodb_buffer_pool_size: 1073741824  # 1 GByte
     quartz_threads: 4
     tomcat_maxpermsize: 256m
     tomcat_newsize: 256m
@@ -125,3 +130,8 @@ rimu:
     mail_host: smtp.sendgrid.net
     mail_port: 587
     mail_username: apikey
+    mysql_innodb_use_native_aio: 1
+    mysql_long_query_time: 1
+    mysql_query_cache_size: 16777216  # 16 MBytes
+    mysql_query_cache_type: 1
+    mysql_slow_query_log: 1
