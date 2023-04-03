@@ -62,6 +62,8 @@ grails.serverURL = "https://{{ ansible_fqdn }}{{ app_context }}"
 
 hipaaspace.api.key = "{{ hipaaspace_api_key }}"
 
+openboxes.client.autosave.enabled = true  # OBPIH-5493
+
 {% if 'dev' in group_names %}
 openboxes.logo.label = 'testing'
 {% elif 'stg' in group_names %}
