@@ -26,9 +26,9 @@
       ansible.builtin.script:
         cmd: |
           ../scripts/configure_remote_agents.bash -p {{ ansible_fqdn }} \
-          -u {{ bamboo_secrets.username }} {{ bamboo.server_url }} disable
+          -u {{ vault.bamboo.username }} {{ inventory.bamboo.server_url }} disable
       environment:
-        BAMBOO_PASSWORD: "{{ bamboo_secrets.password }}"
+        BAMBOO_PASSWORD: "{{ vault.bamboo.password }}"
 
     - name: Collecting script output
       when: disable_agents.stdout_lines is defined
@@ -40,7 +40,7 @@
     - name: Checking if bamboo remote agent is already installed
       register: bamboo_remote_agent_wrapper
       ansible.builtin.stat:
-        path: "{{ bamboo.remote_agent_home }}/bin/wrapper"
+        path: "{{ inventory.bamboo.remote_agent_home }}/bin/wrapper"
 
     - name: Stopping bamboo remote agent service
       when: bamboo_remote_agent_wrapper.stat.exists
@@ -70,7 +70,7 @@
         group: staff
         mode: '0750'
         owner: bamboo
-        path: "{{ bamboo.remote_agent_home }}"
+        path: "{{ inventory.bamboo.remote_agent_home }}"
         state: "{{ item }}"
       loop:
         - absent
@@ -81,18 +81,18 @@
         group: staff
         mode: '0750'
         owner: bamboo
-        path: "{{ bamboo.remote_agent_home }}/build_tools"
+        path: "{{ inventory.bamboo.remote_agent_home }}/build_tools"
         state: directory
 
     - name: Downloading bamboo remote agent
       ansible.builtin.get_url:
-        dest: "{{ bamboo.remote_agent_home }}/atlassian-bamboo-agent-installer.jar"
+        dest: "{{ inventory.bamboo.remote_agent_home }}/atlassian-bamboo-agent-installer.jar"
         group: staff
         mode: '0400'
         owner: bamboo
         timeout: 30
-        # to find this URL, point a browser to {{ bamboo.server_url }}/admin/agent/addRemoteAgent.action
-        url: "{{ bamboo.server_url }}/agentServer/agentInstaller/atlassian-bamboo-agent-installer-{{ bamboo.server_version }}.jar"
+        # to find this URL, point a browser to {{ inventory.bamboo.server_url }}/admin/agent/addRemoteAgent.action
+        url: "{{ inventory.bamboo.server_url }}/agentServer/agentInstaller/atlassian-bamboo-agent-installer-{{ inventory.bamboo.server_version }}.jar"
 
     - name: Installing bamboo remote agent
       become: true
@@ -100,13 +100,13 @@
       ansible.builtin.command:
         argv:
           - /usr/lib/jvm/zulu8-ca-amd64/bin/java
-          - "-Dbamboo.home={{ bamboo.remote_agent_home }}"
+          - "-Dbamboo.home={{ inventory.bamboo.remote_agent_home }}"
           - -jar
           - atlassian-bamboo-agent-installer.jar
-          - "{{ bamboo.server_url }}/agentServer"
+          - "{{ inventory.bamboo.server_url }}/agentServer"
           - install
-        chdir: "{{ bamboo.remote_agent_home }}"
-        creates: "{{ bamboo.remote_agent_home }}/bin/bamboo-agent.sh"
+        chdir: "{{ inventory.bamboo.remote_agent_home }}"
+        creates: "{{ inventory.bamboo.remote_agent_home }}/bin/bamboo-agent.sh"
 
     - name: Creating log directory
       ansible.builtin.file:
@@ -142,7 +142,7 @@
 
     - name: Downloading Grails SDKs
       ansible.builtin.unarchive:
-        dest: "{{ bamboo.remote_agent_home }}/build_tools"
+        dest: "{{ inventory.bamboo.remote_agent_home }}/build_tools"
         group: staff
         owner: bamboo
         remote_src: true
@@ -153,7 +153,7 @@
 
     - name: Downloading Node.js
       ansible.builtin.unarchive:
-        dest: "{{ bamboo.remote_agent_home }}/build_tools"
+        dest: "{{ inventory.bamboo.remote_agent_home }}/build_tools"
         group: staff
         owner: bamboo
         remote_src: true
@@ -164,7 +164,7 @@
     - name: Removing write permission from build_tools
       ansible.builtin.file:
         mode: 'a-w'
-        path: "{{ bamboo.remote_agent_home }}/build_tools"
+        path: "{{ inventory.bamboo.remote_agent_home }}/build_tools"
         recurse: true
 
     # https://confluence.atlassian.com/bamboo/configuring-remote-agent-capabilities-using-bamboo-capabilities-properties-289276849.html
@@ -174,7 +174,7 @@
         group: staff
         mode: '0400'
         owner: bamboo
-        path: "{{ bamboo.remote_agent_home }}/bin/bamboo-capabilities.properties"
+        path: "{{ inventory.bamboo.remote_agent_home }}/bin/bamboo-capabilities.properties"
         state: touch
 
     - name: Advertising ssh capabilities to bamboo
@@ -305,19 +305,19 @@
 
     - name: Waiting for remote agent to fully connect
       ansible.builtin.wait_for:
-        path: "{{ bamboo.remote_agent_home }}/logs/atlassian-bamboo.log"
+        path: "{{ inventory.bamboo.remote_agent_home }}/logs/atlassian-bamboo.log"
         search_regex: 'ready to receive builds'
 
     - name: Attaching agent to projects
       register: attach_agents
-      when: bamboo.project_ids is defined
+      when: inventory.get('bamboo', {}).get('project_ids')
       ansible.builtin.script:
         cmd: |
           ../scripts/configure_remote_agents.bash -p {{ ansible_fqdn }} \
-          -u {{ bamboo_secrets.username }} {{ bamboo.server_url }} {{ item }}
+          -u {{ vault.bamboo.username }} {{ inventory.bamboo.server_url }} {{ item }}
       environment:
-        BAMBOO_PASSWORD: "{{ bamboo_secrets.password }}"
-      loop: "{{ bamboo.project_ids }}"
+        BAMBOO_PASSWORD: "{{ vault.bamboo.password }}"
+      loop: "{{ inventory.bamboo.project_ids }}"
 
     - name: Collecting script output
       when: attach_agents.stdout_lines is defined

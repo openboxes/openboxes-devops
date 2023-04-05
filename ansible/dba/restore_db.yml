@@ -33,17 +33,17 @@
         cmd: |
           ../scripts/restore_db.bash \
           {{ '-f' if force else '' }} {{ '-s' if use_sudo else '' }} \
-          -d {{ db_name }} -i {{ archive_file | basename }} -u {{ db_username }}
+          -d {{ inventory.db_name }} -i {{ archive_file | basename }} -u {{ db_username }}
       environment:
-        DB_ROOT_PASSWORD: "{{ db_users.root.password }}"
-        DB_USER_PASSWORD: "{{ db_users[db_username].password }}"
+        DB_ROOT_PASSWORD: "{{ vault.db_users.root.password }}"
+        DB_USER_PASSWORD: "{{ vault.db_users[db_username].password }}"
 
     - name: Collecting script output
       when: restore_db.stdout_lines is defined
       ansible.builtin.debug:
         msg:
-          - "{{ restore_db.stdout_lines | regex_replace(db_users[db_username].password, '********') }}"
-          - "{{ restore_db.stderr_lines | regex_replace(db_users[db_username].password, '********') }}"
+          - "{{ restore_db.stdout_lines | regex_replace(vault.db_users[db_username].password, '********') }}"
+          - "{{ restore_db.stderr_lines | regex_replace(vault.db_users[db_username].password, '********') }}"
 
     - name: Deleting archive file from remote host after loading
       ansible.builtin.file:
@@ -57,17 +57,17 @@
         state: restarted
 
     - name: Restarting and verifying Tomcat on web-serving hosts
-      when: webserver is defined
+      when: inventory.get('tomcat', {}).get('enabled')
       block:
         - name: Restarting Tomcat service on web-serving hosts
           ansible.builtin.systemd:
             daemon_reload: true
             name: tomcat
             state: restarted
-        - name: "Waiting for 200 from https://...{{ app_context }}"
+        - name: "Waiting for 200 from https://...{{ inventory.app_context }}"
           delay: 15
           retries: 60
           register: https_response
           until: https_response.status == 200
           ansible.builtin.uri:
-            url: "https://{{ ansible_fqdn }}{{ app_context }}"
+            url: "https://{{ ansible_fqdn }}{{ inventory.app_context }}"

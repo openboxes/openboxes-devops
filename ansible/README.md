@@ -38,21 +38,21 @@ The `dba` directory contains Ansible playbooks for the following database-relate
 $ ansible-playbook -i inventories/pih_rimu.yml playbooks/upgrade_packages.yml -l obdev1
 
 # Install required dependencies
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_requirements.yml -l obdev1
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/install_requirements.yml -l obdev1
 
 # Install optional capabilities
 $ ansible-playbook -i inventories/pih_rimu.yml playbooks/apply_security_rules.yml -l obdev1
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enable_bamboo_deploys.yml -l obdev1
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enable_pih_user_access.yml -l obdev1
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_monitoring.yml -l obdev1
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_zerotier.yml -l obdev1
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_bamboo_remote_agent.yml -l obdev1
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/enable_bamboo_deploys.yml -l obdev1
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/enable_pih_user_access.yml -l obdev1
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/install_monitoring.yml -l obdev1
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/install_zerotier.yml -l obdev1
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/install_bamboo_remote_agent.yml -l obdev1
 
 # Extract database data from the production instance in Azure
-$ ansible-playbook -e @secrets/vault -i inventories/pih_azure.yml dba/archive_db.yml -l obnav
+$ ansible-playbook -e @secrets/vault_azure -i inventories/pih_azure.yml dba/archive_db.yml -l obnav
 
 # Upload that database data to your dev machine
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml dba/restore_db.yml -l obdev1
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restore_db.yml -l obdev1
 
 # Now you can deploy openboxes via tomcat manager, or bamboo (if so configured)
 ```
@@ -64,21 +64,35 @@ $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml dba/restore_db.
 $ ansible-playbook -i inventories/pih_rimu.yml playbooks/apt_upgrade.yml -l obdev1
 
 # Update all OpenBoxes dependencies
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_requirements.yml -l obdev1
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/install_requirements.yml -l obdev1
 
 # Re-enable optional access, if desired
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enable_bamboo_deploys.yml -l obdev1
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enable_pih_user_access.yml -l obdev1
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/enable_bamboo_deploys.yml -l obdev1
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/enable_pih_user_access.yml -l obdev1
 
 # Create a new, empty database (use with care!!)
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml dba/reset_db.yml -l obdev1
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/reset_db.yml -l obdev1
 ```
+
+## Exceptions to the rule
+
+Legacy hosts aren't configured as consistently as those in RIMU. A few things to
+bear in mind.
+
+1. `obdev` has a different password for `openboxes` than does any other host.
+   To use any of the playbooks in `dba/*` on `obdev`, you will need to decrypt
+   `secrets/vault_azure` and read the comments.
+2. You may get errors like `mysqldump: Couldn't execute 'FLUSH TABLES': Access
+   denied; you need (at least one of) the RELOAD privilege(s) for this operation
+   (1227)"` on `obnavtest1` and `obnavtest2` when running the `dba/*` playbooks.
+   If so, you'll want to specify `-e db_username=root` on the command line.
+3. In general, your mileage may vary on these hosts.
 
 ## Editing or adding secrets
 
-1. To decrypt secrets: `ansible-vault decrypt secrets/vault`
+1. To decrypt secrets: `ansible-vault decrypt secrets/vault_*`
 2. Edit the vault as you see fit
-3. To encrypt secrets: `ansible-vault encrypt secrets/vault`
+3. To encrypt secrets: `ansible-vault encrypt secrets/vault_*`
 4. _Don't even think of committing between steps 1 and 3!!_
 
 ## Code style
@@ -104,7 +118,7 @@ does the same thing if you run it one time or two times, you'll be in good shape
 ### Variables
 
 - Are they the sort of secret you wouldn't put under source control?
-  - `ansible/secrets/vault`
+  - `ansible/secrets/vault_*`
 - Do they, or could they, vary between hosts?
   - `inventories/*.yml`, see existing `vars` blocks for inspiration
 - Are they consistently applied, but only for one playbook?

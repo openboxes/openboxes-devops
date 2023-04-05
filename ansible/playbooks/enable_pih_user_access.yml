@@ -91,7 +91,7 @@
           regexp: '^jmiranda'
 
     - name: Enabling sudo access for developers
-      when: production is not defined or not production
+      when: "'prd' not in group_names"
       ansible.builtin.lineinfile:
         dest: /etc/sudoers
         line: "{{ item.line }}"
@@ -115,7 +115,7 @@
       ansible.builtin.lineinfile:  # noqa: yaml[line-length]
         insertbefore: '^</tomcat-users>'
         # originally from obnav.pih-emr.org:/etc/tomcat7/tomcat-users.xml
-        line: '  <user username="supplychain" password="{{ tomcat_users.supplychain.password }}" roles="admin,admin-gui,manager-gui,manager-script,tomcat" /> <!-- ANSIBLE MANAGED -->'
+        line: '  <user username="supplychain" password="{{ vault.tomcat_users.supplychain.password }}" roles="admin,admin-gui,manager-gui,manager-script,tomcat" /> <!-- ANSIBLE MANAGED -->'
         path: "/var/lib/{{ item }}/conf/tomcat-users.xml"
         regexp: 'username="supplychain"'
       loop:
@@ -124,23 +124,23 @@
 
     - name: Enabling remote DB access for finance user
       changed_when: true
-      when: db_name is defined and finance_hosts is defined
+      when: inventory.get('finance_hosts')
       ansible.builtin.command:
         argv:
           - mysql
           - -u
           - root
-          - -p{{ db_users.root.password }}
+          - -p{{ vault.db_users.root.password }}
           - -e
           - >-
-            GRANT ALL PRIVILEGES ON `{{ db_name }}`.*
+            GRANT ALL PRIVILEGES ON `{{ inventory.db_name }}`.*
             TO 'finance'@'{{ item }}'
-            IDENTIFIED BY '{{ db_users.finance.password }}';
+            IDENTIFIED BY '{{ vault.db_users.finance.password }}';
             FLUSH PRIVILEGES;
-      loop: "{{ finance_hosts }}"
+      loop: "{{ inventory.finance_hosts }}"
 
     - name: Restarting Tomcat service on web-serving hosts
-      when: webserver is defined
+      when: inventory.get('tomcat', {}).get('enabled')
       ansible.builtin.systemd:
         daemon_reload: true
         enabled: true

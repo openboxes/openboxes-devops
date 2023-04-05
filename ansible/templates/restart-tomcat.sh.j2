@@ -9,7 +9,7 @@ echo "Allowing 90 seconds for tomcat to restart ..."
 sleep 90
 
 echo "Emailing notifications ..."
-SUBJECT="$(whoami) restarted {{ webserver }} on {{ ansible_fqdn }} via $0"
-RECIPIENTS="{{ admin_emails | default('justin@openboxes.org', true) }}"
-{ echo "$(sudo service tomcat status)"; tail -125 /var/lib/{{ webserver }}/logs/catalina.out; } | /usr/bin/mail -s "$SUBJECT" "$RECIPIENTS"
+SUBJECT="$(whoami) restarted {{ inventory.tomcat.name }} on {{ ansible_fqdn }} via $0"
+RECIPIENTS="{{ inventory.mail.admins | default('justin@openboxes.org', true) | join(',') }}"
+{ echo "$(sudo service tomcat status)"; tail -125 /var/log/{{ inventory.tomcat.name }}/catalina.out; } | /usr/bin/mail -s "$SUBJECT" "$RECIPIENTS"
 echo "Done."

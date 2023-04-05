@@ -12,8 +12,8 @@ WantedBy=multi-user.target
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CacheDirectoryMode=750
 Environment="JRE_HOME=/usr/lib/jvm/zulu8-ca-amd64/jre"
-ExecStart={{ bamboo.remote_agent_home }}/bin/bamboo-agent.sh start
-ExecStop={{ bamboo.remote_agent_home }}/bin/bamboo-agent.sh stop
+ExecStart={{ inventory.bamboo.remote_agent_home }}/bin/bamboo-agent.sh start
+ExecStop={{ inventory.bamboo.remote_agent_home }}/bin/bamboo-agent.sh stop
 Group=staff
 LogsDirectory=bamboo-remote-agent
 LogsDirectoryMode=750
@@ -39,4 +39,4 @@ SystemCallFilter=@system-service
 Type=forking
 UMask=0007
 User=bamboo
-WorkingDirectory={{ bamboo.remote_agent_home }}
+WorkingDirectory={{ inventory.bamboo.remote_agent_home }}

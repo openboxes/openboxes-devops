@@ -2,11 +2,19 @@
 
 - name: Installing New Relic monitoring and enabling Sentry
   hosts: all
+  vars:
+    #
+    # Note that the agent we use for Tomcat 7/Java 7 is missing a number of
+    # features, most notably APM logs in context. See discussion here:
+    # https://docs.newrelic.com/docs/logs/logs-context/java-configure-logs-context-all/
+    #
+    newrelic_version: "{{ '6.5.4' if (inventory.get('tomcat', {}).get('jdk') == 'zulu7') else 'current' }}"
+
   tasks:
 
     - name: Removing mysql integration from non-database hosts
       register: apt_uninstall
-      when: db_name is not defined
+      when: not inventory.get('mysql', {}).get('enabled')
       ansible.builtin.apt:
         pkg: nri-mysql
         purge: true
@@ -14,7 +22,7 @@
 
     - name: Removing nginx integration from non-webserver hosts
       register: apt_uninstall
-      when: webserver is not defined
+      when: not inventory.get('tomcat', {}).get('enabled')
       ansible.builtin.apt:
         pkg: nri-nginx
         purge: true
@@ -66,7 +74,7 @@
         name: newrelic.newrelic-infra
       vars:
         nrinfragent_config:
-          license_key: "{{ new_relic.api_key }}"
+          license_key: "{{ vault.new_relic.api_key }}"
         nrinfragent_integrations:
           - name: nri-mysql
             state: latest
@@ -78,7 +86,7 @@
 
     # https://docs.newrelic.com/install/mysql/?dropdown1=linux
     - name: Installing New Relic MariaDB integration
-      when: db_name is defined
+      when: inventory.get('mysql', {}).get('enabled')
       block:
         - name: Creating database user for New Relic
           changed_when: true
@@ -88,10 +96,10 @@
               - mysql
               - -u
               - root
-              - -p{{ db_users.root.password }}
+              - -p{{ vault.db_users.root.password }}
               - -e
               - >-
-                CREATE USER IF NOT EXISTS 'newrelic'@'localhost' IDENTIFIED BY '{{ db_users.newrelic.password }}' WITH MAX_USER_CONNECTIONS 5;
+                CREATE USER IF NOT EXISTS 'newrelic'@'localhost' IDENTIFIED BY '{{ vault.db_users.newrelic.password }}' WITH MAX_USER_CONNECTIONS 5;
                 GRANT REPLICATION CLIENT ON *.* TO 'newrelic'@'localhost' WITH MAX_USER_CONNECTIONS 5;
                 GRANT SELECT ON *.* TO 'newrelic'@'localhost' WITH MAX_USER_CONNECTIONS 5;
                 FLUSH PRIVILEGES;
@@ -124,7 +132,7 @@
             replace: "{{ item.replace }}"
           loop:
             - regexp: '(\s*)#?\s*DATABASE:.*'
-              replace: "\\1DATABASE: {{ db_name }}  # ANSIBLE MANAGED"
+              replace: "\\1DATABASE: {{ inventory.db_name }}  # ANSIBLE MANAGED"
             - regexp: '(\s*)#?\s*EXTENDED_METRICS:.*'
               replace: '\1EXTENDED_METRICS: true  # ANSIBLE MANAGED'
             - regexp: '(\s*)#?\s*EXTENDED_INNODB_METRICS:.*'
@@ -134,7 +142,7 @@
             - regexp: '(\s*)#?\s*HOSTNAME:.*'
               replace: "\\1HOSTNAME: {{ ansible_fqdn }}  # ANSIBLE MANAGED"
             - regexp: '(\s*)#?\s*PASSWORD:.*'
-              replace: "\\1# ANSIBLE MANAGED\\1PASSWORD: {{ db_users.newrelic.password }}"
+              replace: "\\1# ANSIBLE MANAGED\\1PASSWORD: {{ vault.db_users.newrelic.password }}"
             - regexp: '(\s*)#?\s*SOCKET:.*'
               replace: '\1SOCKET: /run/mysqld/mysqld.sock  # ANSIBLE MANAGED'
             - regexp: '(\s*)labels:'
@@ -150,7 +158,7 @@
 
     # https://docs.newrelic.com/docs/infrastructure/host-integrations/host-integrations-list/nginx/nginx-integration/
     - name: Installing New Relic nginx integration
-      when: webserver is defined
+      when: inventory.get('tomcat', {}).get('enabled')
       block:
         - name: Installing nri-nginx with apt
           register: apt_nri_nginx_install
@@ -196,40 +204,32 @@
             src: /etc/newrelic-infra/logging.d/nginx-log.yml.example
 
     - name: Installing New Relic Tomcat integration
-      when: webserver is defined
+      when: inventory.get('tomcat', {}).get('enabled')
       block:
         - name: Creating temporary download directory
           register: tmp_download_dir
           ansible.builtin.tempfile:
             state: directory
             suffix: .download
-        #
-        # Note that the agent we use for Tomcat 7/Java 7 is missing a number of
-        # features, most notably APM logs in context. See discussion here:
-        # https://docs.newrelic.com/docs/logs/logs-context/java-configure-logs-context-all/
-        #
-        - name: Downloading New Relic Tomcat agents
+
+        - name: Downloading New Relic Tomcat agent
           ansible.builtin.get_url:
             dest: "{{ item.dest }}"
             mode: '0400'
             url: "{{ item.url }}"
           loop:
-            - dest: "{{ tmp_download_dir.path }}/newrelic-tomcat7.zip"
-              url: https://download.newrelic.com/newrelic/java-agent/newrelic-agent/6.5.4/newrelic-java.zip
-            - dest: "{{ tmp_download_dir.path }}/newrelic-tomcat85.zip"
-              url: https://download.newrelic.com/newrelic/java-agent/newrelic-agent/current/newrelic-java.zip
-        - name: Unpacking New Relic Tomcat agents
+            - dest: "{{ tmp_download_dir.path }}/newrelic-java-agent.zip"
+              url: "https://download.newrelic.com/newrelic/java-agent/newrelic-agent/{{ newrelic_version }}/newrelic-java.zip"
+        - name: Unpacking New Relic Tomcat agent
           ansible.builtin.unarchive:
-            dest: "{{ item.dest }}"
+            dest: "/var/lib/{{ item }}"
             group: tomcat
             owner: tomcat
             remote_src: true
-            src: "{{ item.src }}"
+            src: "{{ tmp_download_dir.path }}/newrelic-java-agent.zip"
           loop:
-            - dest: /var/lib/tomcat7
-              src: "{{ tmp_download_dir.path }}/newrelic-tomcat7.zip"
-            - dest: /var/lib/tomcat85
-              src: "{{ tmp_download_dir.path }}/newrelic-tomcat85.zip"
+            - tomcat7
+            - tomcat85
         - name: Editing New Relic Tomcat agent yml files
           no_log: true
           ansible.builtin.replace:
@@ -251,10 +251,10 @@
               replace: "\\1labels:\\1  hostname: {{ ansible_fqdn }}  # ANSIBLE MANAGED"
             - path: /var/lib/tomcat7/newrelic/newrelic.yml
               regexp: '^  license_key:.*$'
-              replace: "  # ANSIBLE MANAGED\n  license_key: {{ new_relic.api_key }}"
+              replace: "  # ANSIBLE MANAGED\n  license_key: {{ vault.new_relic.api_key }}"
             - path: /var/lib/tomcat85/newrelic/newrelic.yml
               regexp: '^  license_key:.*$'
-              replace: "  # ANSIBLE MANAGED\n  license_key: {{ new_relic.api_key }}"
+              replace: "  # ANSIBLE MANAGED\n  license_key: {{ vault.new_relic.api_key }}"
             - path: /var/lib/tomcat7/newrelic/newrelic.yml
               regexp: '^  log_file_name: newrelic_agent.log'
               replace: '  # ANSIBLE MANAGED\n  log_file_name: STDOUT'
@@ -267,27 +267,42 @@
 #             - path: /var/lib/tomcat85/newrelic/newrelic.yml
 #               regexp: '^  enable_auto_app_naming: .*$'
 #               replace: "  # ANSIBLE MANAGED\n  enable_auto_app_naming: false"
-
         - name: Adding New Relic flags to Tomcat's setenv.sh
           ansible.builtin.lineinfile:
             insertafter: EOF
             line: "{{ item.line }}"
             path: "{{ item.path }}"
           loop:
-            - line: "export CATALINA_OPTS=\"$CATALINA_OPTS -javaagent:/var/lib/{{ webserver }}/newrelic/newrelic.jar\"  # ANSIBLE MANAGED"
+            - line: "export CATALINA_OPTS=\"$CATALINA_OPTS -javaagent:/var/lib/tomcat7/newrelic/newrelic.jar\"  # ANSIBLE MANAGED"
               path: /var/lib/tomcat7/bin/setenv.sh
-            - line: "export CATALINA_OPTS=\"$CATALINA_OPTS -javaagent:/var/lib/{{ webserver }}/newrelic/newrelic.jar\"  # ANSIBLE MANAGED"
+            - line: "export CATALINA_OPTS=\"$CATALINA_OPTS -javaagent:/var/lib/tomcat85/newrelic/newrelic.jar\"  # ANSIBLE MANAGED"
               path: /var/lib/tomcat85/bin/setenv.sh
             - line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.application_logging.forwarding.context_data.enabled=true"  # ANSIBLE MANAGED'
               path: /var/lib/tomcat7/bin/setenv.sh
             - line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.application_logging.forwarding.context_data.enabled=true"  # ANSIBLE MANAGED'
               path: /var/lib/tomcat85/bin/setenv.sh
-              # https://docs.newrelic.com/docs/distributed-tracing/concepts/how-new-relic-distributed-tracing-works/
-            - line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.distributed_tracing.enabled=true"  # ANSIBLE MANAGED'
-              path: /var/lib/tomcat7/bin/setenv.sh  # enabled by default on Java 8+ new relic builds
-              # https://docs.newrelic.com/docs/apm/agents/java-agent/features/real-time-profiling-java-using-jfr-metrics/
-            - line: 'export CATALINA_OPTS="$CATALINA_OPTS -XX:StartFlightRecording -Dnewrelic.config.jfr.enabled=true"  # ANSIBLE MANAGED'
-              path: /var/lib/tomcat85/bin/setenv.sh  # not available on Java 7 new relic builds
+
+        - name: Adding Java 7-specific New Relic flags
+          when: inventory.get('tomcat', {}).get('jdk') == 'zulu7'
+          ansible.builtin.lineinfile:
+            insertafter: EOF
+            # https://docs.newrelic.com/docs/distributed-tracing/concepts/how-new-relic-distributed-tracing-works/
+            line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.distributed_tracing.enabled=true"  # ANSIBLE MANAGED'
+            path: "/var/lib/{{ item }}/bin/setenv.sh"
+          loop:
+            - tomcat7
+            - tomcat85
+
+        - name: Adding Java 8+-specific New Relic flags
+          when: inventory.get('tomcat', {}).get('jdk') == 'zulu8'
+          ansible.builtin.lineinfile:
+            insertafter: EOF
+            # https://docs.newrelic.com/docs/apm/agents/java-agent/features/real-time-profiling-java-using-jfr-metrics/
+            line: 'export CATALINA_OPTS="$CATALINA_OPTS -XX:StartFlightRecording -Dnewrelic.config.jfr.enabled=true"  # ANSIBLE MANAGED'
+            path: "/var/lib/{{ item }}/bin/setenv.sh"
+          loop:
+            - tomcat7
+            - tomcat85
 
     - name: Configuring New Relic infrastructure agent
       ansible.builtin.blockinfile:
@@ -304,17 +319,30 @@
         regexp: 'PIDFile=/var/run/newrelic-infra/newrelic-infra.pid'
         replace: 'PIDFile=/run/newrelic-infra/newrelic-infra.pid  # ANSIBLE MANAGED'
 
-    - name: Adding Sentry flags to Tomcat's setenv.sh
-      when: webserver is defined and sentry_dsn is defined and ansible_hostname in sentry_dsn
-      ansible.builtin.lineinfile:
-        insertafter: EOF
-        line: "{{ item.line }}"
-        path: "{{ item.path }}"
-      loop:
-        - line: "export SENTRY_DSN={{ sentry_dsn[ansible_hostname] }}  # ANSIBLE MANAGED"
-          path: /var/lib/tomcat7/bin/setenv.sh
-        - line: "export SENTRY_DSN={{ sentry_dsn[ansible_hostname] }}  # ANSIBLE MANAGED"
-          path: /var/lib/tomcat85/bin/setenv.sh
+    - name: Configuring Sentry
+      when: ansible_hostname in vault.get('sentry_dsn', {})
+      block:
+        - name: Adding Sentry flags to Tomcat's setenv.sh
+          ansible.builtin.lineinfile:
+            insertafter: EOF
+            line: "{{ item.line }}"
+            path: "{{ item.path }}"
+          loop:
+            - line: "export SENTRY_DSN={{ vault.sentry_dsn[ansible_hostname] }}  # ANSIBLE MANAGED"
+              path: /var/lib/tomcat7/bin/setenv.sh
+            - line: "export SENTRY_DSN={{ vault.sentry_dsn[ansible_hostname] }}  # ANSIBLE MANAGED"
+              path: /var/lib/tomcat85/bin/setenv.sh
+        - name: Activating Grails' Sentry plugin
+          ansible.builtin.lineinfile:
+            insertafter: EOF
+            line: 'grails.plugins.raven.active = true'
+            path: /home/tomcat/.grails/openboxes-config.groovy
+            regexp: 'grails.plugins.raven.active = false'
+        - name: Configuring Grails' Sentry plugin
+          ansible.builtin.lineinfile:
+            insertafter: 'grails.plugins.raven.active'
+            line: "grails.plugins.raven.dsn = \"{{ vault.sentry_dsn[inventory_hostname] }}\""
+            path: /home/tomcat/.grails/openboxes-config.groovy
 
     - name: Restarting New Relic service
       ansible.builtin.systemd:
@@ -323,8 +351,16 @@
         name: newrelic-infra
         state: restarted
 
+    - name: Restarting MariaDB service
+      when: inventory.get('mysql', {}).get('enabled')
+      ansible.builtin.systemd:
+        daemon_reload: true
+        enabled: true
+        name: mysql
+        state: restarted
+
     - name: Restarting Tomcat and Nginx on web-serving hosts
-      when: webserver is defined
+      when: inventory.get('tomcat', {}).get('enabled')
       block:
         - name: Restarting Tomcat service on web-serving hosts
           ansible.builtin.systemd:
@@ -338,11 +374,3 @@
             enabled: true
             name: nginx
             state: restarted
-
-    - name: Restarting MariaDB service
-      when: db_name is defined
-      ansible.builtin.systemd:
-        daemon_reload: true
-        enabled: true
-        name: mysql
-        state: restarted

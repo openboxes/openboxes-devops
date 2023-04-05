@@ -27,21 +27,21 @@
         - 443
 
     - name: Enabling remote DB access from finance hosts
-      when: finance_hosts is defined
+      when: inventory.get('finance_hosts')
       community.general.ufw:
         port: 3306
         proto: tcp
         rule: allow
         src: "{{ item }}"
-      loop: "{{ finance_hosts }}"
+      loop: "{{ inventory.finance_hosts }}"
 
     - name: Enabling remote DB access from paired webserver
-      when: remote_webserver is defined
+      when: inventory.get('remote_webserver')
       community.general.ufw:
         port: 3306
         proto: tcp
         rule: allow
-        src: "{{ remote_webserver }}"
+        src: "{{ inventory.remote_webserver }}"
 
     - name: Limiting brute-force ssh login attempts
       community.general.ufw:

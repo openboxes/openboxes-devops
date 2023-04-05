@@ -5,14 +5,14 @@
 ssl
 
 [client-server]
-{% if remote_webserver is defined %}
+{% if inventory.get('remote_webserver') %}
 port = 3306
 {% endif %}
 tls_version = TLSv1.1,TLSv1.2,TLSv1.3
 
 [mariadb]
 
-{% if remote_webserver is defined %}
+{% if inventory.get('remote_webserver') %}
 bind-address = {{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}
 {% endif %}
 
@@ -20,29 +20,29 @@ disconnect_on_expired_password = 1
 general_log = 0
 general_log_file = /var/log/mysql/general.log
 
-{% if mysql_innodb_buffer_pool_size is defined %}
-innodb_buffer_pool_size = {{ mysql_innodb_buffer_pool_size }}
+{% if inventory.get('mysql', {}).get('innodb_buffer_pool_size') %}
+innodb_buffer_pool_size = {{ inventory.mysql.innodb_buffer_pool_size }}
 {% endif %}
 
-{% if mysql_innodb_use_native_aio is defined %}
-innodb_use_native_aio = {{ mysql_innodb_use_native_aio }}
+{% if inventory.get('mysql', {}).get('innodb_use_native_aio') %}
+innodb_use_native_aio = {{ inventory.mysql.innodb_use_native_aio }}
 {% endif %}
 
 log_ddl_recovery = /var/log/mysql/ddl_recovery.log
 log_error = /var/log/mysql/error.log
 
-{% if mysql_long_query_time is defined %}
-long_query_time = {{ mysql_long_query_time }}
+{% if inventory.get('mysql', {}).get('long_query_time') %}
+long_query_time = {{ inventory.mysql.long_query_time }}
 {% endif %}
 
-{% if mysql_query_cache_size is defined %}
-query_cache_size = {{ mysql_query_cache_size }}
+{% if inventory.get('mysql', {}).get('query_cache_size') %}
+query_cache_size = {{ inventory.mysql.query_cache_size }}
 {% endif %}
 
 query_cache_strip_comments = 1
 
-{% if mysql_query_cache_type is defined %}
-query_cache_type = {{ mysql_query_cache_type }}
+{% if inventory.get('mysql', {}).get('query_cache_type') %}
+query_cache_type = {{ inventory.mysql.query_cache_type }}
 {% endif %}
 
 #
@@ -53,8 +53,8 @@ require_secure_transport = 0
 
 secure_auth = 1
 
-{% if mysql_slow_query_log is defined %}
-slow_query_log = {{ mysql_slow_query_log }}
+{% if inventory.get('mysql', {}).get('slow_query_log') %}
+slow_query_log = {{ inventory.mysql.slow_query_log }}
 slow_query_log_file = /var/log/mysql/slow.log
 {% endif %}
 

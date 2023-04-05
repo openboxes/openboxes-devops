@@ -1,45 +1,36 @@
 # this file requires ZeroTier access (network ID c7c8172af1a86915)
 
-prd:
-  hosts:
-    obnav:
-      ansible_host: 10.160.28.10
-  vars:
-    production: true
-
-stg:
-  hosts:
-    obnavstg:
-      ansible_host: 10.160.28.11
-
-dev:
-  hosts:
-    obdev:
-      ansible_host: 10.160.28.12
-    obnavtest1:
-      ansible_host: 10.160.28.16
-    obnavtest2:
-      ansible_host: 10.160.28.17
-
-dbservers:
-  children:
-    dev:
-    prd:
-    stg:
-
-webservers:
-  children:
-    dev:
-    prd:
-    stg:
-
-azure:
-  children:
-    dev:
-    prd:
-    stg:
+all:
   vars:
     ansible_port: 22
     ansible_ssh_private_key_file: ~/.ssh/ansible_ed25519
     ansible_user: root
-    db_name: openboxes
+
+  children:
+    prd:
+      hosts:
+        obnav:
+          ansible_host: 10.160.28.10
+          inventory:
+            db_name: openboxes
+    stg:
+      hosts:
+        obnavstg:
+          ansible_host: 10.160.28.11
+          inventory:
+            db_name: openboxes
+    dev:
+      hosts:
+        obdev:
+          ansible_host: 10.160.28.12
+          inventory:
+            db_name: obnav
+        obnavtest1:
+          ansible_host: 10.160.28.16
+          inventory:
+            # /var/lib/tomcat9/.grails/openboxes.yml
+            db_name: openboxes3
+        obnavtest2:
+          ansible_host: 10.160.28.17
+          inventory:
+            db_name: openboxes

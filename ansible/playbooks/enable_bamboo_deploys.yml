@@ -41,7 +41,7 @@
           regexp: '^bamboo'
 
     - name: Adding restart-tomcat script for Bamboo
-      when: webserver is defined
+      when: inventory.get('tomcat', {}).get('enabled')
       ansible.builtin.template:
         dest: /opt/restart-tomcat.sh
         group: staff
@@ -61,7 +61,7 @@
       ansible.builtin.lineinfile:
         insertbefore: '^</tomcat-users>'
         # https://confluence.atlassian.com/bamboo/using-tomcat-with-bamboo-for-continuous-deployment-305759758.html
-        line: '  <user username="bamboo" password="{{ tomcat_users.bamboo.password }}" roles="manager-gui,manager-script" /> <!-- ANSIBLE MANAGED -->'
+        line: '  <user username="bamboo" password="{{ vault.tomcat_users.bamboo.password }}" roles="manager-gui,manager-script" /> <!-- ANSIBLE MANAGED -->'
         path: "/var/lib/{{ item }}/conf/tomcat-users.xml"
         regexp: 'username="bamboo"'
       loop:
@@ -69,7 +69,7 @@
         - tomcat85
 
     - name: Restarting Tomcat service on web-serving hosts
-      when: webserver is defined
+      when: inventory.get('tomcat', {}).get('enabled')
       ansible.builtin.systemd:
         daemon_reload: true
         enabled: true

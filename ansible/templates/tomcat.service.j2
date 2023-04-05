@@ -3,8 +3,8 @@
 
 [Unit]
 After=network.target
-{% if webserver is defined %}
-Description={{ webserver }}
+{% if inventory.get('tomcat').get('name') %}
+Description={{ inventory.tomcat.name }}
 {% endif %}
 
 [Install]
@@ -36,24 +36,22 @@ Type=forking
 UMask=0007
 User=tomcat
 
-{% if webserver is defined %}
-CacheDirectory={{ webserver }}
-Environment="CATALINA_BASE=/var/lib/{{ webserver }}"
-Environment="CATALINA_HOME=/opt/{{ webserver }}"
-Environment="CATALINA_PID=/var/lib/{{ webserver }}/temp/tomcat.pid"
-{% if webserver == "tomcat7" %}
-Environment="JRE_HOME=/usr/lib/jvm/zulu7-ca-amd64/jre"
-{% else %}
-Environment="JRE_HOME=/usr/lib/jvm/zulu8-ca-amd64/jre"
+{% if inventory.get('tomcat').get('name') %}
+CacheDirectory={{ inventory.tomcat.name }}
+Environment="CATALINA_BASE=/var/lib/{{ inventory.tomcat.name }}"
+Environment="CATALINA_HOME=/opt/{{ inventory.tomcat.name }}"
+Environment="CATALINA_PID=/var/lib/{{ inventory.tomcat.name }}/temp/tomcat.pid"
+{% if inventory.get('tomcat').get('jdk') %}
+Environment="JRE_HOME=/usr/lib/jvm/{{ inventory.tomcat.jdk }}-ca-amd64/jre"
 {% endif %}
-ExecStart=/opt/{{ webserver }}/bin/startup.sh
-ExecStop=/opt/{{ webserver }}/bin/shutdown.sh
-LogsDirectory={{ webserver }}
-ReadOnlyPaths=/home/tomcat /opt/{{ webserver }}
-ReadWritePaths=/var/lib/{{ webserver }} /var/log/{{ webserver }}
-RuntimeDirectory={{ webserver }}
-SyslogIdentifier={{ webserver }}
-WorkingDirectory=/var/lib/{{ webserver }}
+ExecStart=/opt/{{ inventory.tomcat.name }}/bin/startup.sh
+ExecStop=/opt/{{ inventory.tomcat.name }}/bin/shutdown.sh
+LogsDirectory={{ inventory.tomcat.name }}
+ReadOnlyPaths=/home/tomcat /opt/{{ inventory.tomcat.name }}
+ReadWritePaths=/var/lib/{{ inventory.tomcat.name }} /var/log/{{ inventory.tomcat.name }}
+RuntimeDirectory={{ inventory.tomcat.name }}
+SyslogIdentifier={{ inventory.tomcat.name }}
+WorkingDirectory=/var/lib/{{ inventory.tomcat.name }}
 {% else %}
 #
 # This host has been configured, by Ansible, to be a db-only server.

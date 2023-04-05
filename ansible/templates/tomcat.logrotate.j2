@@ -1,7 +1,7 @@
 # Ansible generated this file from {{ template_path }}; do not edit locally!
 {# If this comment is present, this is the template file: disregard this warning #}
 
-/var/lib/{{ webserver }}/logs/catalina.out {
+/var/log/{{ inventory.tomcat.name }}/catalina.out {
     compress
     copytruncate
     missingok

@@ -1,5 +1,5 @@
 - name: Archiving OpenBoxes database (please allow 5-10 minutes)
-  hosts: dbservers
+  hosts: all
   vars:
     archive_file: openboxes.tgz
     db_username: openboxes
@@ -10,18 +10,18 @@
     - name: Dumping mysql database (this can be slow)
       register: archive_db
       ansible.builtin.script:
-        cmd: |
-          ../scripts/archive_db.bash {{ '-s' if use_sudo else '' }} \
-          -d {{ db_name }} -o {{ archive_file }} -u {{ db_username }}
+        cmd: >
+          ../scripts/archive_db.bash {{ '-s' if use_sudo else '' }}
+          -d {{ inventory.db_name }} -o {{ archive_file }} -u {{ db_username }}
       environment:
-        DB_USER_PASSWORD: "{{ db_users[db_username].password }}"
+        DB_USER_PASSWORD: "{{ vault.db_users[db_username].password }}"
 
     - name: Collecting script output
       when: archive_db.stdout_lines is defined
       ansible.builtin.debug:
         msg:
-          - "{{ archive_db.stdout_lines | regex_replace(db_users[db_username].password, '********') }}"
-          - "{{ archive_db.stderr_lines | regex_replace(db_users[db_username].password, '********') }}"
+          - "{{ archive_db.stdout_lines | regex_replace(vault.db_users[db_username].password, '********') }}"
+          - "{{ archive_db.stderr_lines | regex_replace(vault.db_users[db_username].password, '********') }}"
 
     - name: Fetching archive file from remote host (this can be slow, too)
       ansible.builtin.fetch:

@@ -2,11 +2,11 @@
 {# If this comment is present, this is the template file: disregard this warning #}
 
 dataSource {
-{% if webserver is defined and webserver != "tomcat7" %}
+{% if inventory.get('tomcat').get('jdk') != "zulu7" %}
     properties {
         dbProperties {
             /*
-             * Under Grails 3+, we can configure JDBC driver settings in this block.
+             * Under Java 8+ (Grails 3+), we can configure JDBC driver settings in this block.
              *
              * https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-configuration-properties.html
              * https://docs.grails.org/3.0.x/guide/conf.html#dataSource
@@ -20,56 +20,51 @@ dataSource {
             includeThreadNamesAsStatementComment = true
             logSlowQueries = {{ ('dev' in group_names or 'stg' in group_names) | string | lower }}
             // https://dev.mysql.com/doc/connector-j/8.0/en/connector-j-reference-using-ssl.html
-            sslMode = {{ 'REQUIRED' if 'localhost' in db_url else 'VERIFY_IDENTITY' }}
+            sslMode = {{ 'REQUIRED' if 'localhost' in inventory.get('db_url', '') else 'VERIFY_IDENTITY' }}
         }
     }
 {% endif %}
     dialect = org.hibernate.dialect.MariaDB103Dialect
     idleConnectionTestPeriod = 600
-    password = "{{ db_users.openboxes.password }}"
+    password = "{{ vault.db_users.openboxes.password }}"
     preferredTestQuery = null
     testConnectionOnCheckin = true
     testConnectionOnCheckout = false
-{% if db_url is defined %}
-    url = "{{ db_url }}"
+{% if inventory.get('db_url') %}
+    url = "{{ inventory.db_url }}"
 {% endif %}
     username = 'openboxes'
 }
 
-{% if google_analytics_web_property_id is defined %}
+{% if inventory.get('google_analytics_web_property_id') %}
 google.analytics.enabled = true
-google.analytics.webPropertyID = "{{ google_analytics_web_property_id }}"
+google.analytics.webPropertyID = "{{ inventory.google_analytics_web_property_id }}"
 {% else %}
 google.analytics.enabled = false
 {% endif %}
 
-google.api.key = "{{ google_api_key }}"
+google.api.key = "{{ vault.google_api_key }}"
 
-grails.app.context = "{{ app_context }}"
+grails.app.context = "{{ inventory.app_context }}"
 
 // MailService.groovy
-{% if mail_enabled is defined %}
-grails.mail.bcc = "{{ mail_bcc }}"
-grails.mail.enabled = {{ mail_enabled | string | lower }}
-grails.mail.from = "{{ mail_address }}"
-grails.mail.host = "{{ mail_host }}"
-grails.mail.password = "{{ mail_password }}"
-grails.mail.port = {{ mail_port }}
-grails.mail.username = "{{ mail_username }}"
+{% if inventory.get('grails', {}).get('send_mail') and inventory.get('mail') %}
+grails.mail.bcc = "{{ inventory.mail.bcc | join(',') }}"
+grails.mail.enabled = {{ inventory.grails.send_mail | string | lower }}
+grails.mail.from = "{{ inventory.mail.sender }}"
+grails.mail.host = "{{ inventory.mail.host }}"
+grails.mail.password = "{{ vault.mail.password }}"
+grails.mail.port = {{ inventory.mail.port }}
+grails.mail.username = "{{ inventory.mail.username }}"
 {% else %}
 grails.mail.enabled = false
 {% endif %}
 
-{% if inventory_hostname in sentry_dsn %}
-grails.plugins.raven.active = true
-grails.plugins.raven.dsn = "{{ sentry_dsn[inventory_hostname] }}"
-{% else %}
 grails.plugins.raven.active = false
-{% endif %}
 
-grails.serverURL = "https://{{ ansible_fqdn }}{{ app_context }}"
+grails.serverURL = "https://{{ ansible_fqdn }}{{ inventory.app_context }}"
 
-hipaaspace.api.key = "{{ hipaaspace_api_key }}"
+hipaaspace.api.key = "{{ vault.hipaaspace_api_key }}"
 
 openboxes.client.autosave.enabled = true  // OBPIH-5493
 
@@ -81,9 +76,9 @@ openboxes.logo.label = 'staging'
 
 openboxes.logo.url = "https://{{ ansible_fqdn }}/images/pih_2020_logo.png"
 
-{% if mail_enabled is defined %}
-openboxes.mail.errors.enabled = {{ mail_enabled | string | lower }}
-openboxes.mail.errors.recipients = ['openboxes@pih.org']
+{% if inventory.get('grails', {}).get('send_mail') and inventory.get('mail') %}
+openboxes.mail.errors.enabled = true
+openboxes.mail.errors.recipients = {{ inventory.mail.recipients }}
 {% else %}
 openboxes.mail.errors.enabled = false
 {% endif %}
@@ -115,15 +110,15 @@ quartz.scheduler.instanceId = "{{ template_destpath }}"
 org.quartz.scheduler.instanceName = 'LegacyQuartzPool'
 quartz.scheduler.instanceName = 'NewerQuartzPool'
 
-{% if quartz_threads is defined %}
-org.quartz.threadPool.threadCount = {{ quartz_threads }}
-quartz.threadPool.threadCount = {{ quartz_threads }}
+{% if inventory.get('grails', {}).get('quartz_threads') %}
+org.quartz.threadPool.threadCount = {{ inventory.grails.quartz_threads }}
+quartz.threadPool.threadCount = {{ inventory.grails.quartz_threads }}
 {% endif %}
 
 org.quartz.threadPool.threadPriority = 1
 quartz.threadPool.threadPriority = 1
 
-server.contextPath = "{{ app_context }}"
+server.contextPath = "{{ inventory.app_context }}"
 
 /*
  * These fields, set in obnav.pih-emr.org:/opt/tomcat/.grails/openboxes-config.*,

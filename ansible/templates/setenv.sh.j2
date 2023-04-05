@@ -1,9 +1,9 @@
 # Ansible generated this file from {{ template_path }}; do not edit locally!
 {# If this comment is present, this is the template file: disregard this warning #}
 
-{% if gpars_poolsize is defined %}
+{% if inventory.get('tomcat', {}).get('gpars_poolsize') %}
 # specify number of GPars workers
-export CATALINA_OPTS="$CATALINA_OPTS -Dgpars.poolsize={{ gpars_poolsize }}"
+export CATALINA_OPTS="$CATALINA_OPTS -Dgpars.poolsize={{ inventory.tomcat.gpars_poolsize }}"
 {% endif %}
 
 # https://docs.jboss.org/hibernate/orm/5.2/javadocs/org/hibernate/dialect/package-summary.html
@@ -13,7 +13,7 @@ export CATALINA_OPTS="$CATALINA_OPTS -Dhibernate.dialect.storage_engine=innodb"
 export CATALINA_OPTS="$CATALINA_OPTS -Djava.library.path=/usr/lib/x86_64-linux-gnu"
 
 # disable old TLS versions
-{% if webserver == "tomcat7" %}
+{% if inventory.get('tomcat', {}).get('jdk') == "zulu7" %}
 export CATALINA_OPTS="$CATALINA_OPTS -Djdk.tls.client.protocols='TLSv1.2'"
 {% else %}
 export CATALINA_OPTS="$CATALINA_OPTS -Djdk.tls.client.protocols='TLSv1.2,TLSv1.3'"
@@ -25,28 +25,35 @@ export CATALINA_OPTS="$CATALINA_OPTS -Dstringchararrayaccessor.disabled=true"
 # run JVM as a server; don't load AWT libraries
 export CATALINA_OPTS="$CATALINA_OPTS -server -Djava.awt.headless=true"
 
-{% if tomcat_xms is defined and tomcat_xmx is defined %}
-# set heap size
-export CATALINA_OPTS="$CATALINA_OPTS -Xms{{ tomcat_xms }} -Xmx{{ tomcat_xmx }}"
+{% if inventory.get('tomcat', {}).get('xms') %}
+export CATALINA_OPTS="$CATALINA_OPTS -Xms{{ inventory.tomcat.xms }}"
+{% endif %}
+{% if inventory.get('tomcat', {}).get('xmx') %}
+export CATALINA_OPTS="$CATALINA_OPTS -Xmx{{ inventory.tomcat.xmx }}"
 {% endif %}
 
-{% if tomcat_newsize is defined %}
+{% if inventory.get('tomcat', {}).get('newsize') %}
 # set size of the "young" generation
-export CATALINA_OPTS="$CATALINA_OPTS -XX:NewSize={{ tomcat_newsize }} -XX:MaxNewSize={{ tomcat_newsize }}"
+export CATALINA_OPTS="$CATALINA_OPTS -XX:NewSize={{ inventory.tomcat.newsize }} -XX:MaxNewSize={{ inventory.tomcat.newsize }}"
 {% endif %}
 
-{% if webserver == "tomcat7" and tomcat_permsize is defined and tomcat_maxpermsize is defined %}
+{% if inventory.get('tomcat', {}).get('jdk') == "zulu7" %}
+{% if inventory.get('tomcat', {}).get('permsize') %}
 # make space for dynamic (groovy, jsp) classes; not needed in Java 8
-export CATALINA_OPTS="$CATALINA_OPTS -XX:PermSize={{ tomcat_permsize }} -XX:MaxPermSize={{ tomcat_maxpermsize }}"
+export CATALINA_OPTS="$CATALINA_OPTS -XX:PermSize={{ inventory.tomcat.permsize }}"
+{% endif %}
+{% if inventory.get('tomcat', {}).get('maxpermsize')  %}
+export CATALINA_OPTS="$CATALINA_OPTS -XX:MaxPermSize={{ inventory.tomcat.maxpermsize }}"
+{% endif %}
 {% endif %}
 
 # configure garbage collection
 # https://www.oracle.com/technical-resources/articles/java/g1gc.html
 export CATALINA_OPTS="$CATALINA_OPTS -XX:+CMSClassUnloadingEnabled -XX:+DisableExplicitGC -XX:+UseG1GC"
-{% if gc_threads is defined %}
-export CATALINA_OPTS="$CATALINA_OPTS -XX:ParallelGCThreads={{ gc_threads }}"
+{% if inventory.get('tomcat', {}).get('gc_threads') %}
+export CATALINA_OPTS="$CATALINA_OPTS -XX:ParallelGCThreads={{ inventory.tomcat.gc_threads }}"
 {% endif %}
-{% if webserver != "tomcat7" %}
+{% if inventory.get('tomcat', {}).get('jdk') != 'zulu7' %}
 export CATALINA_OPTS="$CATALINA_OPTS -XX:+UseStringDeduplication"  # Java 8+
 {% endif %}
 

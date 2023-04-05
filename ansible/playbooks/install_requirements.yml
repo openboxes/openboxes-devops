@@ -226,7 +226,7 @@
 
     - name: Configuring Tomcat environment variables
       ansible.builtin.template:
-        dest: "/var/lib/{{ webserver }}/bin/setenv.sh"
+        dest: "/var/lib/{{ item }}/bin/setenv.sh"
         group: tomcat
         mode: '0550'
         owner: tomcat
@@ -234,8 +234,6 @@
       loop:
         - tomcat7
         - tomcat85
-      vars:
-        webserver: "{{ item }}"
 
     - name: Disabling Tomcat session persistence
       ansible.builtin.replace:
@@ -285,7 +283,7 @@
 
     - name: Configuring logback-access
       ansible.builtin.template:
-        dest: "/var/lib/{{ webserver }}/conf/logback-access.xml"
+        dest: "/var/lib/{{ item }}/conf/logback-access.xml"
         group: tomcat
         mode: '0400'
         owner: tomcat
@@ -293,8 +291,6 @@
       loop:
         - tomcat7
         - tomcat85
-      vars:
-        webserver: "{{ item }}"
 
     - name: Attaching logback-access to Tomcat
       ansible.builtin.lineinfile:
@@ -315,7 +311,7 @@
         src: ../templates/tomcat.service.j2
 
     - name: Configuring Tomcat log rotation
-      when: webserver is defined
+      when: inventory.get('tomcat', {}).get('enabled')
       ansible.builtin.template:
         dest: /etc/logrotate.d/tomcat
         group: root
@@ -352,7 +348,9 @@
       changed_when: true
       register: certbot
       ansible.builtin.command:
-        cmd: "/snap/bin/certbot -m {{ mail_address }} -nv --agree-tos --domains {{ ansible_fqdn }} --must-staple --nginx --redirect --staple-ocsp"
+        cmd: >
+          /snap/bin/certbot -m {{ inventory.mail.sender }} -nv --agree-tos
+          --domains {{ ansible_fqdn }} --must-staple --nginx --redirect --staple-ocsp
 
     - name: Collecting Certbot output
       when: certbot.stdout_lines is defined
@@ -416,7 +414,7 @@
         owner: tomcat
         src: ../templates/openboxes-config.groovy.j2
 
-    - name: "Redirecting / to {{ app_context }}"
+    - name: "Redirecting / to {{ inventory.app_context }}"
       ansible.builtin.template:
         dest: "/var/lib/{{ item }}/webapps/ROOT/index.jsp"
         group: tomcat
@@ -443,10 +441,10 @@
           - mysql
           - -u
           - root
-          - -p{{ db_users.root.password }}
+          - -p{{ vault.db_users.root.password }}
           - -e
           - >-
-            ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ db_users.root.password }}';
+            ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ vault.db_users.root.password }}';
             FLUSH PRIVILEGES;
 
     - name: Securing MariaDB via mysql_secure_installation
@@ -454,7 +452,7 @@
       ansible.builtin.expect:
         command: mysql_secure_installation
         responses:
-          'Enter current password for root \(enter for none\):': "{{ db_users.root.password }}"
+          'Enter current password for root \(enter for none\):': "{{ vault.db_users.root.password }}"
           'Switch to unix_socket authentication \[Y/n\]': 'Y'
           'Change the root password\? \[Y/n\]': 'n'
           'Remove anonymous users\? \[Y/n\]': 'Y'
@@ -468,23 +466,23 @@
       when: mysql_secure_installation.stdout_lines is defined
       ansible.builtin.debug:
         msg:
-          - "{{ mysql_secure_installation.stdout_lines | regex_replace(db_users.root.password, '********') }}"
+          - "{{ mysql_secure_installation.stdout_lines | regex_replace(vault.db_users.root.password, '********') }}"
 
     - name: Enabling remote DB access
       changed_when: true
       no_log: true
-      when: remote_webserver is defined
+      when: inventory.get('remote_webserver')
       ansible.builtin.command:
         argv:
           - mysql
           - -u
           - root
-          - -p{{ db_users.root.password }}
+          - -p{{ vault.db_users.root.password }}
           - -e
           - >-
-            GRANT ALL PRIVILEGES ON `{{ db_name }}`.*
-            TO 'openboxes'@'{{ remote_webserver }}'
-            IDENTIFIED BY '{{ db_users.openboxes.password }}';
+            GRANT ALL PRIVILEGES ON `{{ inventory.db_name }}`.*
+            TO 'openboxes'@'{{ inventory.remote_webserver }}'
+            IDENTIFIED BY '{{ vault.db_users.openboxes.password }}';
             FLUSH PRIVILEGES;
 
     - name: Restarting MariaDB service
@@ -495,7 +493,7 @@
         state: restarted
 
     - name: Enabling Tomcat and Nginx on web-serving hosts
-      when: webserver is defined
+      when: inventory.get('tomcat', {}).get('enabled')
       block:
         - name: Restarting Tomcat service on web-serving hosts
           ansible.builtin.systemd:
@@ -511,7 +509,7 @@
             state: restarted
 
     - name: Disabling Tomcat and Nginx on db-exclusive hosts
-      when: webserver is not defined
+      when: not inventory.get('tomcat', {}).get('enabled')
       block:
         - name: Disabling Tomcat service on db-exclusive hosts
           ansible.builtin.systemd:

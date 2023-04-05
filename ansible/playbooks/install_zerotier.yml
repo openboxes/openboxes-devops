@@ -56,4 +56,4 @@
         cmd: |
           zerotier-cli leave {{ item | quote }}
           zerotier-cli join {{ item | quote }} AllowDNS=true
-      loop: "{{ zerotier_vpns }}"
+      loop: "{{ vault.zerotier_vpns }}"
