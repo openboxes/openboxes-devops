@@ -1,4 +1,4 @@
-- name: Installing OpenBoxes Dependencies
+- name: Installing OpenBoxes requirements
   hosts: all
   vars:
     logback_version: '1.2.11'
@@ -196,6 +196,16 @@
         - tomcat85
       vars:
         webserver: "{{ item }}"
+
+    - name: Disabling Tomcat session persistence
+      ansible.builtin.replace:
+        # prevent 'ClassNotFoundException while loading persisted sessions'
+        path: "/var/lib/{{ item }}/conf/context.xml"
+        regexp: '(\s*)<!--\s*\n(\s*)<Manager pathname="" />.*\n(\s*)-->.*'
+        replace: '\1<Manager pathname="" /> <!-- ANSIBLE ENABLED -->'
+      loop:
+        - tomcat7
+        - tomcat85
 
     - name: Increasing Tomcat cache size
       ansible.builtin.lineinfile:
