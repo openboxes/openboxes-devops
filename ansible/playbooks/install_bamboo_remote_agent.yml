@@ -176,7 +176,7 @@
       register: java7_release
       ansible.builtin.shell:
         cmd: |
-          set -eo pipefail
+          set -euo pipefail
           /usr/lib/jvm/zulu7-ca-amd64/bin/java -version 2>&1 | grep version | cut -d' ' -f3 | tr -d '"'
       args:
         executable: /usr/bin/bash
@@ -186,7 +186,7 @@
       register: java8_release
       ansible.builtin.shell:
         cmd: |
-          set -o pipefail
+          set -euo pipefail
           /usr/lib/jvm/zulu8-ca-amd64/bin/java -version 2>&1 | grep version | cut -d' ' -f3 | tr -d '"'
       args:
         executable: /usr/bin/bash

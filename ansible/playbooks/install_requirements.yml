@@ -2,6 +2,7 @@
   hosts: all
   vars:
     logback_version: '1.2.11'
+    mariadb_version: '10.11'
     tomcat7_version: '7.0.109'
     tomcat8_version: '8.5.87'
 
@@ -12,12 +13,16 @@
       ansible.builtin.fail:
         msg: this playbook requires Ubuntu 22.04 LTS
 
-    - name: Removing apache2 if present
+    - name: Removing apache2 and old MariaDB releases
       register: apt_uninstall
       ansible.builtin.apt:
-        pkg: apache2
+        autoremove: true
         purge: true
         state: absent
+        pkg:
+          - apache2
+          - mariadb-client-10.6
+          - mariadb-server-10.6
 
     - name: Collecting apt uninstall output
       when: apt_uninstall.stdout_lines is defined
@@ -25,6 +30,16 @@
         msg:
           - "{{ apt_uninstall.stdout_lines }}"
           - "{{ apt_uninstall.stderr_lines }}"
+
+    - name: Adding MariaDB apt key and repository
+      ansible.builtin.shell:
+        cmd: >-
+          set -euo pipefail &&
+          curl -sLS https://r.mariadb.com/downloads/mariadb_repo_setup |
+          bash -s -- --mariadb-server-version="mariadb-{{ mariadb_version }}"
+        creates: /etc/apt/sources.list.d/mariadb.list
+      args:
+        executable: /usr/bin/bash
 
     - name: Adding Nginx apt key
       ansible.builtin.apt_key:
@@ -52,7 +67,10 @@
         state: latest
         update_cache: true
         pkg:
+          - libaio1
           - libtcnative-1
+          - mariadb-backup
+          - mariadb-client
           - mariadb-server
           - nginx
           - snapd
