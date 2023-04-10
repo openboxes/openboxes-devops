@@ -240,10 +240,10 @@
             replace: "{{ item.replace }}"
           loop:
             - path: /var/lib/tomcat7/newrelic/newrelic.yml
-              regexp: '^  app_name: .*$'
+              regexp: '^  app_name:.*$'
               replace: "  # ANSIBLE MANAGED\n  app_name: 'tomcat7:{{ ansible_fqdn }}'"
             - path: /var/lib/tomcat85/newrelic/newrelic.yml
-              regexp: '^  app_name: .*$'
+              regexp: '^  app_name:.*$'
               replace: "  # ANSIBLE MANAGED\n  app_name: 'tomcat85:{{ ansible_fqdn }}'"
             - path: /var/lib/tomcat7/newrelic/newrelic.yml
               regexp: '(\s*)labels:'
@@ -252,11 +252,17 @@
               regexp: '(\s*)labels:'
               replace: "\\1labels:\\1  hostname: {{ ansible_fqdn }}  # ANSIBLE MANAGED"
             - path: /var/lib/tomcat7/newrelic/newrelic.yml
-              regexp: '^  license_key: .*$'
+              regexp: '^  license_key:.*$'
               replace: "  # ANSIBLE MANAGED\n  license_key: {{ new_relic.api_key }}"
             - path: /var/lib/tomcat85/newrelic/newrelic.yml
-              regexp: '^  license_key: .*$'
+              regexp: '^  license_key:.*$'
               replace: "  # ANSIBLE MANAGED\n  license_key: {{ new_relic.api_key }}"
+            - path: /var/lib/tomcat7/newrelic/newrelic.yml
+              regexp: '^  log_file_name: newrelic_agent.log'
+              replace: '  # ANSIBLE MANAGED\n  log_file_name: STDOUT'
+            - path: /var/lib/tomcat85/newrelic/newrelic.yml
+              regexp: '^  log_file_name: newrelic_agent.log'
+              replace: '  # ANSIBLE MANAGED\n  log_file_name: STDOUT'
 #             - path: /var/lib/tomcat7/newrelic/newrelic.yml
 #               regexp: '^  enable_auto_app_naming: .*$'
 #               replace: "  # ANSIBLE MANAGED\n  enable_auto_app_naming: false"
