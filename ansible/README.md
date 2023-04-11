@@ -23,7 +23,7 @@ The `dba` directory contains Ansible playbooks for the following database-relate
 2. [Install `ansible-lint`.](https://ansible-lint.readthedocs.io) (optional, if developing playbooks)
 3. Install [New Relic's Ansible plug-in](https://docs.newrelic.com/docs/infrastructure/install-infrastructure-agent/config-management-tools/configure-infrastructure-agent-using-ansible/) (optional, if you want New Relic support) by running `ansible-galaxy install newrelic.newrelic-infra` in a terminal.
 4. Ask colleagues for appropriate SSH key pair(s) for the host(s) you need to access, and place them in `~/.ssh/`
-5. The repository itself contains obscured secrets (mostly API keys). Ask a colleague for the secret UUID and put it in `$WORKSPACE/ansible/secret/key`.
+5. The repository itself contains obscured secrets (mostly API keys). Ask a colleague for the secret UUID and put it in `$WORKSPACE/ansible/secrets/key`.
 
 ## Configuring a target to receive Ansible commands
 
