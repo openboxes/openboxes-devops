@@ -9,6 +9,7 @@
         groups: "{{ item.groups }}"
         name: "{{ item.name }}"
         password: '!'
+        shell: /bin/bash
         system: "{{ item.system | bool }}"
         uid: "{{ item.uid }}"
       loop:
