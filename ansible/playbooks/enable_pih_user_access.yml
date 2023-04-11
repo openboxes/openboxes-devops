@@ -122,6 +122,23 @@
         - tomcat7
         - tomcat85
 
+    - name: Enabling remote DB access for finance user
+      changed_when: true
+      when: db_name is defined and finance_hosts is defined
+      ansible.builtin.command:
+        argv:
+          - mysql
+          - -u
+          - root
+          - -p{{ db_users.root.password }}
+          - -e
+          - >-
+            GRANT ALL PRIVILEGES ON `{{ db_name }}`.*
+            TO 'finance'@'{{ item }}'
+            IDENTIFIED BY '{{ db_users.finance.password }}';
+            FLUSH PRIVILEGES;
+      loop: "{{ finance_hosts }}"
+
     - name: Restarting Tomcat service on web-serving hosts
       when: webserver is defined
       ansible.builtin.systemd:
