@@ -44,9 +44,9 @@ $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/insta
 $ ansible-playbook -i inventories/pih_rimu.yml playbooks/apply_security_rules.yml -l obdev1
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enable_bamboo_deploys.yml -l obdev1
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enable_pih_user_access.yml -l obdev1
+$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_monitoring.yml -l obdev1
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_zerotier.yml -l obdev1
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_bamboo_remote_agent.yml -l obdev1
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_monitoring.yml -l obdev1
 
 # Extract database data from the production instance in Azure
 $ ansible-playbook -e @secrets/vault -i inventories/pih_azure.yml dba/archive_db.yml -l obnav

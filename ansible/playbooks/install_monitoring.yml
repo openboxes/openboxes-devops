@@ -125,8 +125,6 @@
           loop:
             - regexp: '(\s*)#?\s*DATABASE:.*'
               replace: "\\1DATABASE: {{ db_name }}  # ANSIBLE MANAGED"
-            - regexp: '(\s*)#?\s*ENABLE_TLS:.*'
-              replace: '\1ENABLE_TLS: false  # ANSIBLE MANAGED'
             - regexp: '(\s*)#?\s*EXTENDED_METRICS:.*'
               replace: '\1EXTENDED_METRICS: true  # ANSIBLE MANAGED'
             - regexp: '(\s*)#?\s*EXTENDED_INNODB_METRICS:.*'
