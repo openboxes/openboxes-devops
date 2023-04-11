@@ -7,6 +7,15 @@
       ansible.builtin.fail:
         msg: this playbook requires Ubuntu 22.04 LTS
 
+    # https://ubuntu.com/server/docs/about-apt-upgrade-and-phased-updates
+    - name: Ensuring apt applies consistently phased updates
+      ansible.builtin.copy:
+        content: 'APT::Machine-ID "dce39446c67666ac896544bd5dba1e1d";'
+        dest: /etc/apt/apt.conf.d/80PhasedUpdates
+        group: root
+        mode: '0644'
+        owner: root
+
     - name: Running apt full-upgrade
       register: apt_upgrade
       ansible.builtin.apt:
