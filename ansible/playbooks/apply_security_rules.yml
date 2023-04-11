@@ -3,6 +3,19 @@
 - name: Applying security measures
   hosts: all
   tasks:
+
+    - name: Installing ClamAV
+      register: apt_install
+      ansible.builtin.apt:
+        cache_valid_time: 3600
+        install_recommends: true
+        state: latest
+        update_cache: true
+        pkg:
+          - clamav
+          - clamav-daemon
+          - libclamunrar9
+
     - name: Enabling ssh, http and https access
       community.general.ufw:
         port: "{{ item }}"
