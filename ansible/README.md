@@ -8,7 +8,7 @@ The `playbooks` directory contains Ansible playbooks for the following tasks:
 - `install_requirements.yml` installs and configures the software and services OpenBoxes requires.
 - `enable_bamboo_deploys.yml` configures a host so that Bamboo can deploy OpenBoxes to it (optional).
 - `enable_pih_user_access.yml` configures a host to allow PIH developer access (optional).
-- `install_newrelic.yml` installs New Relic monitoring on a host (optional).
+- `install_monitoring.yml` installs New Relic monitoring on a host (optional).
 - `install_zerotier.yml` installs ZeroTier VPN software on a host (optional).
 
 The `dba` directory contains Ansible playbooks for the following database-related tasks:
@@ -46,7 +46,7 @@ $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enabl
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enable_pih_user_access.yml -l obdev1
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_zerotier.yml -l obdev1
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_bamboo_remote_agent.yml -l obdev1
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_newrelic.yml -l obdev1
+$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_monitoring.yml -l obdev1
 
 # Extract database data from the production instance in Azure
 $ ansible-playbook -e @secrets/vault -i inventories/pih_azure.yml dba/archive_db.yml -l obnav
@@ -64,7 +64,7 @@ $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml dba/restore_db.
 $ ansible-playbook -i inventories/pih_rimu.yml playbooks/apt_upgrade.yml -l obdev1
 
 # Update all OpenBoxes dependencies
-$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_dependencies.yml -l obdev1
+$ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/install_requirements.yml -l obdev1
 
 # Re-enable optional access, if desired
 $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml playbooks/enable_bamboo_deploys.yml -l obdev1
