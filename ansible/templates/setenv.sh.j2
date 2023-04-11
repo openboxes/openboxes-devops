@@ -6,8 +6,18 @@
 export CATALINA_OPTS="$CATALINA_OPTS -Dgpars.poolsize={{ gpars_poolsize }}"
 {% endif %}
 
+# https://docs.jboss.org/hibernate/orm/5.2/javadocs/org/hibernate/dialect/package-summary.html
+export CATALINA_OPTS="$CATALINA_OPTS -Dhibernate.dialect.storage_engine=innodb"
+
 # tell Tomcat where Ubuntu installs the libtcnative library
 export CATALINA_OPTS="$CATALINA_OPTS -Djava.library.path=/usr/lib/x86_64-linux-gnu"
+
+# disable old TLS versions
+{% if webserver == "tomcat7" %}
+export CATALINA_OPTS="$CATALINA_OPTS -Djdk.tls.client.protocols='TLSv1.2'"
+{% else %}
+export CATALINA_OPTS="$CATALINA_OPTS -Djdk.tls.client.protocols='TLSv1.2,TLSv1.3'"
+{% endif %}
 
 # https://github.com/grails/grails-core/issues/2359
 export CATALINA_OPTS="$CATALINA_OPTS -Dstringchararrayaccessor.disabled=true"
