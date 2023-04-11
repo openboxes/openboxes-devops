@@ -85,3 +85,55 @@ $ ansible-playbook -e @secrets/vault -i inventories/pih_rimu.yml dba/reset_db.ym
 
 - Wrap octal numbers in single-quotes to prevent YML surprises
 - Bonus points for running `ansible-lint */*.yml` before making a PR
+
+## Philosophical musings about how Ansible works
+
+An Ansible playbook is a collection of tasks that sort of specify what you want
+to do but _really_ specify what you want to _have done_: ideally, they're at
+least somewhat more declarative than imperative. Consider the `ansible.builtin.apt`
+task, which takes a `state: latest` parameter. When it completes, all dependencies
+in the `pkg:` block will be installed and brought up to date. If they already are,
+then the task won't run.
+
+For an apt task, that's fairly straightforward. Things get a little trickier in
+tasks that add, remove, or change lines. If you can write an idempotent task that
+does the same thing if you run it one time or two times, you'll be in good shape.
+
+## What goes where?
+
+### Variables
+
+- Are they the sort of secret you wouldn't put under source control?
+  - `ansible/secrets/vault`
+- Do they, or could they, vary between hosts?
+  - `inventories/*.yml`, see existing `vars` blocks for inspiration
+- Are they consistently applied, but only for one playbook?
+  - `vars` block, either at the top of a play for globals or within a block for locals
+
+### Config files
+
+- Many config files are generated from the `templates/` directory. You can search
+  for the template's filename within playbook yml files to see where the template
+  is copied.
+- Other config files are only slightly modified from the defaults present on a
+  fresh install. These are usually edited with `lineinfile` and `blockinfile`
+  tasks
+
+You can get almost every file we edit by running the following command:
+
+`egrep '(path|dest):' playbooks/*`
+
+### Logs
+
+Almost everything winds up somewhere in `/var/log`, as it should.
+
+- Bamboo remote agent `/var/log/bamboo-remote-agent/*`
+- firewall `/var/log/ufw.log`
+- MariaDB `/var/log/mysql/*`
+- New Relic `/var/log/newrelic-infra/*`
+- Nginx `/var/log/nginx/*`
+- Tomcat 7 `/var/log/tomcat7/*`
+- Tomcat 8.5 `/var/log/tomcat85/*`
+
+Exceptions:
+- Grails still may dump some stack traces to Tomcat's working directory `/var/lib/tomcat*/stacktrace.log`

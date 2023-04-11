@@ -12,6 +12,9 @@ port = 3306
 bind-address = {{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}
 {% endif %}
 
+general_log = 0
+general_log_file = /var/log/mysql/general.log
+
 {% if mysql_innodb_buffer_pool_size is defined %}
 innodb_buffer_pool_size = {{ mysql_innodb_buffer_pool_size }}
 {% endif %}
@@ -20,6 +23,7 @@ innodb_buffer_pool_size = {{ mysql_innodb_buffer_pool_size }}
 innodb_use_native_aio = {{ mysql_innodb_use_native_aio }}
 {% endif %}
 
+log_ddl_recovery = /var/log/mysql/ddl_recovery.log
 log_error = /var/log/mysql/error.log
 
 {% if mysql_long_query_time is defined %}
@@ -38,6 +42,7 @@ query_cache_type = {{ mysql_query_cache_type }}
 
 {% if mysql_slow_query_log is defined %}
 slow_query_log = {{ mysql_slow_query_log }}
+slow_query_log_file = /var/log/mysql/slow.log
 {% endif %}
 
 sql_mode = ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,STRICT_TRANS_TABLES

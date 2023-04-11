@@ -160,7 +160,29 @@
         owner: tomcat
         path: "{{ '/'.join(item) }}"
         state: directory
-      loop: "{{ ['/var/lib'] | product(['tomcat7', 'tomcat85']) | map('join', '/') | product(['bin', 'lib', 'logs', 'temp', 'webapps']) }}"
+      loop: "{{ ['/var/lib'] | product(['tomcat7', 'tomcat85']) | map('join', '/') | product(['bin', 'lib', 'temp', 'webapps']) }}"
+
+    - name: Creating Tomcat logging directory
+      ansible.builtin.file:
+        group: tomcat
+        mode: '0755'
+        owner: tomcat
+        path: "/var/log/{{ item }}"
+        state: directory
+      loop:
+        - tomcat7
+        - tomcat85
+
+    - name: Symlinking Tomcat logging directory
+      ansible.builtin.file:
+        dest: "/var/lib/{{ item }}/logs"
+        group: tomcat
+        owner: tomcat
+        src: "/var/log/{{ item }}"
+        state: link
+      loop:
+        - tomcat7
+        - tomcat85
 
     - name: Copying default Tomcat config files to CATALINA_BASE
       ansible.builtin.copy:
