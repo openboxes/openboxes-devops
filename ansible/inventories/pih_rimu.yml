@@ -170,6 +170,10 @@ all:
               <<: *little_tomcat
               jdk: zulu8
               name: tomcat85
+    bamboo_remote_agents:
+      hosts:
+        obdev3:
+        obdev4:
     dev:
       hosts:
         obdev1:

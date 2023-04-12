@@ -1,5 +1,5 @@
 - name: Upgrading all apt packages to latest LTS versions
-  hosts: dev stg prd
+  hosts: all
   tasks:
 
     - name: Ensuring host is running Ubuntu 22.04 LTS

@@ -1,5 +1,5 @@
 - name: Installing ZeroTier VPN
-  hosts: all
+  hosts: bamboo_remote_agents
   tasks:
 
     - name: Adding ZeroTier apt key

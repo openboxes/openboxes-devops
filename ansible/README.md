@@ -57,18 +57,10 @@ $ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restor
 # Now you can deploy openboxes via tomcat manager, or bamboo (if so configured)
 ```
 
-## Example 2: Use playbooks to restore a host to "factory settings"
+## Example 2: Use playbooks to restore a PIH host to "factory settings"
 
 ```
-# Apply latest Ubuntu 22.04 updates
-$ ansible-playbook -i inventories/pih_rimu.yml playbooks/apt_upgrade.yml -l obdev1
-
-# Update all OpenBoxes dependencies
-$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/install_requirements.yml -l obdev1
-
-# Re-enable optional access, if desired
-$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/enable_bamboo_deploys.yml -l obdev1
-$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/enable_pih_user_access.yml -l obdev1
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/pih_main.yml -l obdev1
 
 # Create a new, empty database (use with care!!)
 $ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/reset_db.yml -l obdev1

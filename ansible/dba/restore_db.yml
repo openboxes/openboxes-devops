@@ -1,5 +1,5 @@
 - name: Restoring OpenBoxes database (please allow 10-30+ minutes)
-  hosts: dev dbstg
+  hosts: all:!prd
   vars:
     archive_file: ../build/archive_db/obnav/openboxes.tgz
     db_username: openboxes

@@ -1,5 +1,5 @@
 - name: Resetting OpenBoxes database (please allow 15-20 minutes)
-  hosts: dev dbstg
+  hosts: all:!prd
   vars:
     db_username: openboxes
     use_sudo: false

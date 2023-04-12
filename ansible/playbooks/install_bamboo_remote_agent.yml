@@ -1,7 +1,7 @@
 # https://confluence.atlassian.com/bamboo0802/bamboo-remote-agent-installation-guide-1103432753.html
 
 - name: Installing bamboo remote agent
-  hosts: dev stg
+  hosts: bamboo_remote_agents
   tasks:
 
     - name: Installing jq with apt
