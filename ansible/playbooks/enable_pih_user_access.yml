@@ -124,7 +124,7 @@
 
     - name: Enabling remote DB access for finance user
       changed_when: true
-      when: inventory.get('finance_hosts')
+      when: inventory.get('firewall')
       ansible.builtin.command:
         argv:
           - mysql
@@ -137,7 +137,12 @@
             TO 'finance'@'{{ item }}'
             IDENTIFIED BY '{{ vault.db_users.finance.password }}';
             FLUSH PRIVILEGES;
-      loop: "{{ inventory.finance_hosts }}"
+      loop: >-
+        {{ inventory.firewall.values()
+         | selectattr('users', 'defined')
+         | selectattr('users', 'contains', 'finance')
+         | map(attribute='ips')
+         | flatten }}
 
     - name: Restarting Tomcat service on web-serving hosts
       when: inventory.get('tomcat', {}).get('enabled')

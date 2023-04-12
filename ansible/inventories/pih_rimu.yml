@@ -68,6 +68,36 @@ all:
       vars:
         inventory: &big_inventory
           <<: *common_inventory
+          firewall:
+            finance_hosts:
+              ips:
+                - 35.82.194.80
+                - 35.83.121.11
+                - 44.229.76.29
+                - 44.231.117.185
+                - 44.242.112.145
+                - 52.89.22.131
+                - 54.191.255.196
+                - 54.213.236.166
+              port: 3306
+              users:
+                - finance
+            pih_cld_whdev:
+              ips:
+                - 40.70.215.46
+              port: 3306
+              users:
+                - finance
+            pih_cld_whprod:
+              ips:
+                - 52.177.217.36
+              port: 3306
+              users:
+                - finance
+            soldevelo:
+              ips:
+                - 194.181.116.130
+              port: 3306
           mysql:
             <<: *common_mysql
             enabled: true

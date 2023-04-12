@@ -26,18 +26,20 @@
         - 80
         - 443
 
-    - name: Enabling remote DB access from finance hosts
-      when: inventory.get('finance_hosts')
+    - name: Applying firewall rules from inventory
+      when: inventory.get('firewall')
       community.general.ufw:
-        port: 3306
+        comment: "allow access from {{ item[0].key }}"
+        port: "{{ item[0].value.port }}"
         proto: tcp
         rule: allow
-        src: "{{ item }}"
-      loop: "{{ inventory.finance_hosts }}"
+        src: "{{ item[1] }}"
+      loop: "{{ inventory.firewall | dict2items | subelements('value.ips') }}"
 
-    - name: Enabling remote DB access from paired webserver
+    - name: Enabling remote DB access from remote webserver
       when: inventory.get('remote_webserver')
       community.general.ufw:
+        comment: allow access from remote webserver
         port: 3306
         proto: tcp
         rule: allow
@@ -45,6 +47,7 @@
 
     - name: Limiting brute-force ssh login attempts
       community.general.ufw:
+        comment: defend against brute-force ssh login attempts
         port: 22
         proto: tcp
         rule: limit
