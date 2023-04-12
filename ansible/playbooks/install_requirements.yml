@@ -483,6 +483,7 @@
             GRANT ALL PRIVILEGES ON `{{ inventory.db_name }}`.*
             TO 'openboxes'@'localhost'
             IDENTIFIED BY '{{ vault.db_users.openboxes.password }}';
+            GRANT process ON *.* TO 'openboxes'@'localhost';
             FLUSH PRIVILEGES;
 
     - name: Enabling remote DB access
@@ -500,6 +501,7 @@
             GRANT ALL PRIVILEGES ON `{{ inventory.db_name }}`.*
             TO 'openboxes'@'{{ inventory.remote_webserver }}'
             IDENTIFIED BY '{{ vault.db_users.openboxes.password }}';
+            GRANT process ON *.* TO 'openboxes'@'{{ inventory.remote_webserver }}';
             FLUSH PRIVILEGES;
 
     - name: Restarting MariaDB service
