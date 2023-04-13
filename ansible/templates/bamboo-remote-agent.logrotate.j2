@@ -1,0 +1,10 @@
+# Ansible generated this file from {{ template_path }}; do not edit locally!
+{# If this comment is present, this is the template file: disregard this warning #}
+
+/var/log/bamboo-remote-agent/*.log {
+    compress
+    copytruncate
+    missingok
+    rotate 90
+    weekly
+}

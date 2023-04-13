@@ -40,8 +40,8 @@
       register: disable_agents
       ansible.builtin.script:
         cmd: >
-          ../scripts/configure_remote_agents.bash -p {{ ansible_fqdn }}
-          -u {{ vault.bamboo.username }} {{ inventory.bamboo.server_url }} disable
+          ../scripts/disable_remote_agents.bash -p {{ ansible_fqdn }}
+          -u {{ vault.bamboo.username }} {{ inventory.bamboo.server_url }}
       environment:
         BAMBOO_PASSWORD: "{{ vault.bamboo.password }}"
 
@@ -138,6 +138,22 @@
         owner: bamboo
         src: /var/log/bamboo-remote-agent
         state: link
+
+    - name: Configuring bamboo agent log rotation
+      ansible.builtin.template:
+        dest: /etc/logrotate.d/bamboo-remote-agent
+        group: root
+        mode: '0444'
+        owner: root
+        src: ../templates/bamboo-remote-agent.logrotate.j2
+
+    #
+    # A few downstream steps check logs. Rotating them before they do so
+    # prevents them from seeing dead agents' messages as signs of life.
+    #
+    - name: Rotating bamboo agent logs
+      ansible.builtin.command:
+        cmd: logrotate --force /etc/logrotate.d/bamboo-remote-agent
 
     - name: Touching toplevel bamboo log file
       ansible.builtin.file:
@@ -318,25 +334,52 @@
         name: bamboo-remote-agent
         state: restarted
 
-    - name: Waiting for remote agent to fully connect
+    - name: Waiting for remote agent to start logging
+      register: remote_agent_logfile
+      ansible.builtin.stat:
+        path: /var/log/bamboo-remote-agent/atlassian-bamboo.log
+      delay: 1
+      retries: 60
+      until: remote_agent_logfile.stat.get('size', 0) > 0
+
+    - name: Waiting for remote agent to check build queue
+      register: remote_agent_id_regex
       ansible.builtin.wait_for:
-        path: "{{ inventory.bamboo.remote_agent_home }}/logs/atlassian-bamboo.log"
-        search_regex: 'ready to receive builds'
+        path: /var/log/bamboo-remote-agent/atlassian-bamboo.log
+        search_regex: 'Agent (\d+) checking build queue for executables'
 
-    - name: Attaching agent to projects
-      register: attach_agents
-      when: inventory.get('bamboo', {}).get('project_ids')
-      ansible.builtin.script:
-        cmd: >
-          ../scripts/configure_remote_agents.bash -p {{ ansible_fqdn }}
-          -u {{ vault.bamboo.username }} {{ inventory.bamboo.server_url }} {{ item }}
-      environment:
-        BAMBOO_PASSWORD: "{{ vault.bamboo.password }}"
-      loop: "{{ inventory.bamboo.project_ids }}"
-
-    - name: Collecting script output
-      when: attach_agents.stdout_lines is defined
+    - name: Collecting remote agent id
       ansible.builtin.debug:
         msg:
-          - "{{ attach_agents.stdout_lines }}"
-          - "{{ attach_agents.stderr_lines }}"
+          - "{{ remote_agent_id_regex.match_groups[0] }}"
+
+    - name: Waiting for bamboo server to acknowledge remote agent
+      register: agent_status
+      ansible.builtin.shell:
+        cmd: >
+          curl -H 'Accept: application/json' -X GET
+          -su "{{ vault.bamboo.username }}:{{ vault.bamboo.password }}"
+          {{ inventory.bamboo.server_url }}/rest/api/latest/agent/{{ remote_agent_id_regex.match_groups[0] }}/status
+          | jq -r '.online'
+      delay: 10
+      retries: 6
+      until: agent_status.stdout.find('true') != -1
+
+    - name: Dedicating agent to projects
+      register: dedicate_agent
+      when: inventory.get('bamboo', {}).get('project_ids')
+      ansible.builtin.shell:
+        cmd: >
+          query_string='assignmentType=PROJECT';
+          query_string="${query_string}&entityId={{ item }}";
+          query_string="${query_string}&executorId={{ remote_agent_id_regex.match_groups[0] }}";
+          query_string="${query_string}&executorType=AGENT";
+          curl -H 'Accept: application/json' -X POST
+          -su "{{ vault.bamboo.username }}:{{ vault.bamboo.password }}"
+          "{{ inventory.bamboo.server_url }}/rest/api/latest/agent/assignment?${query_string}"
+      loop: "{{ inventory.bamboo.project_ids }}"
+      until: remote_agent_id_regex.match_groups[0] in dedicate_agent.stdout
+
+    - name: Collecting curl output
+      ansible.builtin.debug:
+        msg: "{% for r in dedicate_agent.results %}{{ r.stdout }}{% endfor %}"
