@@ -10,7 +10,6 @@ all:
           - 3735553
         remote_agent_home: /home/bamboo/remote-agent
         server_url: https://bamboo-ci.pih-emr.org
-        server_version: 9.2.1
       db_name: openboxes
       mail:
         admins:
@@ -176,6 +175,8 @@ all:
               name: tomcat85
     bamboo_remote_agents:
       hosts:
+        obdev1:
+        obdev2:
         obdev3:
         obdev4:
     dev:

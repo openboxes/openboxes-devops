@@ -21,11 +21,26 @@
           - "{{ apt_install.stdout_lines }}"
           - "{{ apt_install.stderr_lines }}"
 
+    - name: Getting bamboo server version
+      register: server_version
+      ansible.builtin.shell:
+        cmd: >
+          curl -H 'Accept: application/json' -X GET
+          -su "{{ vault.bamboo.username }}:{{ vault.bamboo.password }}"
+          {{ inventory.bamboo.server_url }}/rest/api/latest/info
+          | jq -r '.version'
+
+    - name: Collecting bamboo server version
+      when: server_version.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ server_version.stdout }}"
+
     - name: Disabling agents associated with host
       register: disable_agents
       ansible.builtin.script:
-        cmd: |
-          ../scripts/configure_remote_agents.bash -p {{ ansible_fqdn }} \
+        cmd: >
+          ../scripts/configure_remote_agents.bash -p {{ ansible_fqdn }}
           -u {{ vault.bamboo.username }} {{ inventory.bamboo.server_url }} disable
       environment:
         BAMBOO_PASSWORD: "{{ vault.bamboo.password }}"
@@ -91,8 +106,8 @@
         mode: '0400'
         owner: bamboo
         timeout: 30
-        # to find this URL, point a browser to {{ inventory.bamboo.server_url }}/admin/agent/addRemoteAgent.action
-        url: "{{ inventory.bamboo.server_url }}/agentServer/agentInstaller/atlassian-bamboo-agent-installer-{{ inventory.bamboo.server_version }}.jar"
+        # to find this URL, point a browser to {{ server_version.stdout }}/admin/agent/addRemoteAgent.action
+        url: "{{ inventory.bamboo.server_url }}/agentServer/agentInstaller/atlassian-bamboo-agent-installer-{{ server_version.stdout }}.jar"
 
     - name: Installing bamboo remote agent
       become: true
@@ -312,8 +327,8 @@
       register: attach_agents
       when: inventory.get('bamboo', {}).get('project_ids')
       ansible.builtin.script:
-        cmd: |
-          ../scripts/configure_remote_agents.bash -p {{ ansible_fqdn }} \
+        cmd: >
+          ../scripts/configure_remote_agents.bash -p {{ ansible_fqdn }}
           -u {{ vault.bamboo.username }} {{ inventory.bamboo.server_url }} {{ item }}
       environment:
         BAMBOO_PASSWORD: "{{ vault.bamboo.password }}"
