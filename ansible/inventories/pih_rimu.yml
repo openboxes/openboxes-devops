@@ -137,7 +137,7 @@ all:
             enabled: true
             gc_threads: 3
             gpars_poolsize: 4
-            maxpermsize: 256m
+            maxpermsize: 512m
             permsize: 256m
             xms: 2560m
             xmx: 2560m
