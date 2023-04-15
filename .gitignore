@@ -1,3 +1,4 @@
 .DS_Store
 ansible/build
 ansible/secrets/key
+.idea

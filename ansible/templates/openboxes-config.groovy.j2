@@ -148,3 +148,8 @@ openboxes.purchasing.approval.enabled = true
 openboxes.purchasing.updateUnitPrice.enabled = true
 openboxes.refreshAnalyticsDataOnStartup.enabled = false
 openboxes.stockCard.consumption.reasonCodes = org.pih.warehouse.core.ReasonCode.list()
+
+{% if inventory.get('openboxes', {}).get('hotjar') %}
+openboxes.hotjar.enabled = {{ inventory.openboxes.hotjar.enabled }}
+openboxes.hotjar.hjid = {{ inventory.openboxes.hotjar.identifier }}
+openboxes.hotjar.hjsv = {{ inventory.openboxes.hotjar.snippetVersion }}
