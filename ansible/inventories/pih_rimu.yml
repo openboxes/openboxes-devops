@@ -27,7 +27,7 @@ all:
       mysql: &common_mysql
         innodb_use_native_aio: 1
         long_query_time: 1
-        query_cache_size: 16777216 # 16 MBytes
+        query_cache_size: 16777216  # 16 MBytes
         query_cache_type: 1
         slow_query_log: 1
       tomcat: &common_tomcat
@@ -104,7 +104,7 @@ all:
           mysql:
             <<: *common_mysql
             enabled: true
-            innodb_buffer_pool_size: 17179869184 # 16 GBytes
+            innodb_buffer_pool_size: 17179869184  # 16 GBytes
           tomcat:
             enabled: false
       hosts:
@@ -130,7 +130,7 @@ all:
           mysql:
             <<: *common_mysql
             enabled: true
-            innodb_buffer_pool_size: 1073741824 # 1 GByte
+            innodb_buffer_pool_size: 1073741824  # 1 GByte
           tomcat: &little_tomcat
             <<: *common_tomcat
             enabled: true
