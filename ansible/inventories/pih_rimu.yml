@@ -5,11 +5,6 @@ all:
     ansible_user: root
     inventory: &common_inventory
       app_context: /openboxes
-      bamboo:
-        project_ids:
-          - 3735553
-        remote_agent_home: /home/bamboo/remote-agent
-        server_url: https://bamboo-ci.pih-emr.org
       db_name: openboxes
       mail:
         admins:
@@ -179,11 +174,20 @@ all:
               jdk: zulu8
               name: tomcat85
     bamboo_remote_agents:
+      vars:
+        inventory:
+          <<: *common_inventory
+          bamboo:
+            project_ids:
+              - 3735553
+            remote_agent_home: /home/bamboo/remote-agent
+            server_url: https://bamboo-ci.pih-emr.org
+          swap_size: 10GiB  # argument to fallocate -l
       hosts:
-        obdev1:
-        obdev2:
-        obdev3:
-        obdev4:
+        obagent1:
+          ansible_host: 74.50.48.53
+        obagent2:
+          ansible_host: 74.50.48.161
     dev:
       hosts:
         obdev1:

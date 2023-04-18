@@ -16,13 +16,20 @@
           - clamav-daemon
           - libclamunrar9
 
-    - name: Enabling ssh, http and https access
+    - name: Enabling ssh access while limiting brute-force login attempts
+      community.general.ufw:
+        comment: defend against brute-force ssh login attempts
+        port: 22
+        proto: tcp
+        rule: limit
+
+    - name: Enabling http(s) access on web-serving hosts
+      when: inventory.get('tomcat', {}).get('enabled')
       community.general.ufw:
         port: "{{ item }}"
         proto: tcp
         rule: allow
       loop:
-        - 22
         - 80
         - 443
 
@@ -44,13 +51,6 @@
         proto: tcp
         rule: allow
         src: "{{ inventory.remote_webserver }}"
-
-    - name: Limiting brute-force ssh login attempts
-      community.general.ufw:
-        comment: defend against brute-force ssh login attempts
-        port: 22
-        proto: tcp
-        rule: limit
 
     - name: Enabling firewall, with logging
       community.general.ufw:

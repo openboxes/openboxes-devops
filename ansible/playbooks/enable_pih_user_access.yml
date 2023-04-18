@@ -124,7 +124,7 @@
 
     - name: Enabling remote DB access for finance user
       changed_when: true
-      when: inventory.get('firewall')
+      when: inventory.get('firewall') and inventory.get('mysql', {}).get('enabled')
       ansible.builtin.command:
         argv:
           - mysql

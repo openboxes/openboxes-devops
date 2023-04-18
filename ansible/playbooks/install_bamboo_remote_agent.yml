@@ -22,13 +22,17 @@
           - "{{ apt_install.stderr_lines }}"
 
     - name: Getting bamboo server version
+      changed_when: true
       register: server_version
       ansible.builtin.shell:
         cmd: >
+          set -euo pipefail;
           curl -H 'Accept: application/json' -X GET
           -su "{{ vault.bamboo.username }}:{{ vault.bamboo.password }}"
           {{ inventory.bamboo.server_url }}/rest/api/latest/info
           | jq -r '.version'
+      args:
+        executable: /usr/bin/bash
 
     - name: Collecting bamboo server version
       when: server_version.stdout_lines is defined
@@ -152,6 +156,7 @@
     # prevents them from seeing dead agents' messages as signs of life.
     #
     - name: Rotating bamboo agent logs
+      changed_when: true
       ansible.builtin.command:
         cmd: logrotate --force /etc/logrotate.d/bamboo-remote-agent
 
@@ -354,18 +359,23 @@
           - "{{ remote_agent_id_regex.match_groups[0] }}"
 
     - name: Waiting for bamboo server to acknowledge remote agent
+      changed_when: true
       register: agent_status
       ansible.builtin.shell:
         cmd: >
+          set -euo pipefail;
           curl -H 'Accept: application/json' -X GET
           -su "{{ vault.bamboo.username }}:{{ vault.bamboo.password }}"
           {{ inventory.bamboo.server_url }}/rest/api/latest/agent/{{ remote_agent_id_regex.match_groups[0] }}/status
           | jq -r '.online'
+      args:
+        executable: /usr/bin/bash
       delay: 10
       retries: 6
       until: agent_status.stdout.find('true') != -1
 
     - name: Dedicating agent to projects
+      changed_when: true
       register: dedicate_agent
       when: inventory.get('bamboo', {}).get('project_ids')
       ansible.builtin.shell:
