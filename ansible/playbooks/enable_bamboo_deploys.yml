@@ -1,6 +1,6 @@
 # Requires `ansible-galaxy collection install ansible.posix`
 
-- name: Enabling bamboo remote restart
+- name: Enabling deployment and remote restart with Bamboo
   hosts: all
   tasks:
 
@@ -30,7 +30,7 @@
         - key_file: ../public_keys/bamboo_ed25519.pub
           user: bamboo
 
-    - name: Enabling limited sudo access for bamboo
+    - name: Enabling limited sudo access for bamboo user
       ansible.builtin.lineinfile:
         dest: /etc/sudoers
         line: "{{ item.line }}"
@@ -50,14 +50,14 @@
         src: ../templates/restart-tomcat.sh.j2
 
     #
-    # The following task ignores Tomcat best practices, but bamboo needs it to work.
+    # The following task ignores Tomcat best practices, but Bamboo needs it to work.
     #
     # > It is recommended to never grant the manager-script or
     # > manager-jmx roles to users that have the manager-gui role.
     #
     # https://tomcat.apache.org/tomcat-8.5-doc/manager-howto.html#Configuring_Manager_Application_Access
     #
-    - name: Injecting Tomcat user for bamboo
+    - name: Injecting bamboo user in Tomcat manager
       ansible.builtin.lineinfile:
         insertbefore: '^</tomcat-users>'
         # https://confluence.atlassian.com/bamboo/using-tomcat-with-bamboo-for-continuous-deployment-305759758.html
@@ -70,8 +70,50 @@
 
     - name: Restarting Tomcat service on web-serving hosts
       when: inventory.get('tomcat', {}).get('enabled')
-      ansible.builtin.systemd:
-        daemon_reload: true
-        enabled: true
-        name: tomcat
-        state: restarted
+      block:
+
+        - name: Declaring deployment targets
+          ansible.builtin.set_fact:
+            deployment_targets:
+              - "/var/lib/tomcat7/webapps{{ inventory.app_context }}"
+              - "/var/lib/tomcat85/webapps{{ inventory.app_context }}"
+
+        - name: Creating deployment directories if not present
+          ansible.builtin.file:
+            group: tomcat
+            mode: '0750'
+            owner: tomcat
+            path: "{{ item }}"
+            state: directory
+          loop: "{{ deployment_targets }}"
+
+        - name: Restarting Tomcat service on web-serving hosts
+          ansible.builtin.systemd:
+            daemon_reload: true
+            enabled: true
+            name: tomcat
+            state: restarted
+
+        - name: Checking for existing deployments
+          register: find_results
+          ansible.builtin.find:
+            depth: 1
+            paths: "{{ deployment_targets }}"
+
+        - name: Enabling empty deploy via Tomcat manager
+          when: find_results.matched == 0
+          block:
+
+            - name: Pause until Tomcat manager is up
+              register: tomcat_manager
+              ansible.builtin.uri:
+                password: "{{ vault.tomcat_users.bamboo.password }}"
+                url: http://localhost:8080/manager/text
+                user: bamboo
+              until: tomcat_manager.status == 200
+
+            - name: Starting a dummy deploy so Bamboo has something to replace
+              ansible.builtin.uri:
+                password: "{{ vault.tomcat_users.bamboo.password }}"
+                url: http://localhost:8080/manager/text/start?path={{ inventory.app_context }}
+                user: bamboo

@@ -351,7 +351,7 @@
         name: newrelic-infra
         state: restarted
 
-    - name: Restarting MariaDB service
+    - name: Restarting MariaDB service on db-serving hosts
       when: inventory.get('mysql', {}).get('enabled')
       ansible.builtin.systemd:
         daemon_reload: true
