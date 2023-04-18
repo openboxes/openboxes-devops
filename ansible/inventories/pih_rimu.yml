@@ -145,6 +145,11 @@ all:
           ansible_host: 74.50.49.109
           inventory:
             <<: *little_instance_inventory
+            openboxes:
+              hotjar:
+                enabled: true
+                identifier: 3443850
+                snippetVersion: 6
             tomcat:
               <<: *little_tomcat
               jdk: zulu7
