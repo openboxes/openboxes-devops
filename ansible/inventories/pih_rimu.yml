@@ -138,8 +138,8 @@ all:
             gpars_poolsize: 4
             maxpermsize: 512m
             permsize: 256m
-            xms: 2560m
-            xmx: 2560m
+            xms: 3072m
+            xmx: 3072m
       hosts:
         obdev1:
           ansible_host: 74.50.49.109
