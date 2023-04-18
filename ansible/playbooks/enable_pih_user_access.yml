@@ -122,6 +122,18 @@
         - tomcat7
         - tomcat85
 
+    - name: Removing any previous finance user records
+      changed_when: true
+      when: inventory.get('mysql', {}).get('enabled')
+      ansible.builtin.command:
+        argv:
+          - mysql
+          - -u
+          - root
+          - -p{{ vault.db_users.root.password }}
+          - -e
+          - delete from mysql.user where User = 'finance';
+
     - name: Enabling remote DB access for finance user
       changed_when: true
       when: inventory.get('firewall')
@@ -133,14 +145,33 @@
           - -p{{ vault.db_users.root.password }}
           - -e
           - >-
-            GRANT ALL PRIVILEGES ON `{{ inventory.db_name }}`.*
-            TO 'finance'@'{{ item }}'
-            IDENTIFIED BY '{{ vault.db_users.finance.password }}';
+            DROP USER IF EXISTS 'finance'@'{{ item }}';
+            CREATE USER 'finance'@'{{ item }}' IDENTIFIED BY '{{ vault.db_users.finance.password }}';
+            GRANT ALL PRIVILEGES ON `{{ inventory.db_name }}`.* TO 'finance'@'{{ item }}';
             FLUSH PRIVILEGES;
       loop: >-
         {{ inventory.firewall.values()
          | selectattr('users', 'defined')
          | selectattr('users', 'contains', 'finance')
+         | map(attribute='ips')
+         | flatten }}
+
+    - name: Requiring SSL for finance user when client supports it
+      changed_when: true
+      when: inventory.get('firewall') and inventory.get('mysql', {}).get('enabled')
+      ansible.builtin.command:
+        argv:
+          - mysql
+          - -u
+          - root
+          - -p{{ vault.db_users.root.password }}
+          - -e
+          - "ALTER USER 'finance'@'{{ item }}' REQUIRE SSL; FLUSH PRIVILEGES;"
+      loop: >-
+        {{ inventory.firewall.values()
+         | selectattr('users', 'defined')
+         | selectattr('users', 'contains', 'finance')
+         | selectattr('require_mysql_ssl')
          | map(attribute='ips')
          | flatten }}
 
