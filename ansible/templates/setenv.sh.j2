@@ -12,13 +12,13 @@ export CATALINA_OPTS="$CATALINA_OPTS -Dhibernate.dialect.storage_engine=innodb"
 # tell Tomcat where Ubuntu installs the libtcnative library
 export CATALINA_OPTS="$CATALINA_OPTS -Djava.library.path=/usr/lib/x86_64-linux-gnu"
 
-# disable old TLS versions
+# New Relic's java agent requires TLSv1.2, but we can disable older versions
 {% if inventory.get('tomcat', {}).get('jdk') == "zulu7" %}
 export CATALINA_OPTS="$CATALINA_OPTS -Dhttps.protocols='TLSv1.2'"
 export CATALINA_OPTS="$CATALINA_OPTS -Djdk.tls.client.protocols='TLSv1.2'"
 {% else %}
-export CATALINA_OPTS="$CATALINA_OPTS -Dhttps.protocols='TLSv1.3'"
-export CATALINA_OPTS="$CATALINA_OPTS -Djdk.tls.client.protocols='TLSv1.3'"
+export CATALINA_OPTS="$CATALINA_OPTS -Dhttps.protocols='TLSv1.2,TLSv1.3'"
+export CATALINA_OPTS="$CATALINA_OPTS -Djdk.tls.client.protocols='TLSv1.2,TLSv1.3'"
 {% endif %}
 
 # https://github.com/grails/grails-core/issues/2359
