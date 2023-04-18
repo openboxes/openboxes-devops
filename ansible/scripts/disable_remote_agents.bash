@@ -3,17 +3,16 @@ set -euo pipefail
 
 usage()
 {
-    echo >&2 "$0 - configure Bamboo agent(s) via server rest API"
+    echo >&2 "$0 - disable Bamboo agent(s) via server rest API"
     echo >&2 ''
-    echo >&2 "Usage: $0 [-p <host_pattern>] [-u <bamboo_user>] <bamboo_url> <action>"
+    echo >&2 "Usage: $0 [-p <host_pattern>] [-u <bamboo_user>] <bamboo_url>"
     echo >&2 ''
     echo >&2 'Options:'
     echo >&2 "  -p <host_pattern> -- grep pattern to match (default: '$(hostname)')"
     echo >&2 '  -u <bamboo_user> -- name of bamboo user (default: "bamboo")'
     echo >&2 ''
-    echo >&2 'Positional Parameters:'
+    echo >&2 'Positional Parameter:'
     echo >&2 '  <bamboo_url> url to a bamboo server, including scheme:// prefix'
-    echo >&2 "  <action> either 'disable', or a project ID to which agents should be assigned"
 
     [ "$@" ] && exit "$@" || exit 2
 }
@@ -43,9 +42,8 @@ done
 shift $((OPTIND-1))
 
 set +u
-[ "$#" -eq 2 ] || usage
+[ "$#" -eq 1 ] || usage
 bamboo_url="$1"
-action="$2"
 if [ ! "$BAMBOO_PASSWORD" ]
 then
     echo >&2 'please set the BAMBOO_PASSWORD environment variable'
@@ -75,23 +73,12 @@ then
 	exit 0
 fi
 
-if [ "$action" == 'disable' ]
-then
-	echo "About to disable ${#target_agent_ids[@]} remote agents"
+echo "About to disable ${#target_agent_ids[@]} remote agents"
 
-	for agent_id in "${target_agent_ids[@]}"
-	do
-		curl -H 'Accept: application/json' -X PUT -su "${bamboo_user}:${BAMBOO_PASSWORD}" \
-		"${bamboo_url}/rest/api/latest/agent/${agent_id}/disable" | jq -M .
-	done
-else
-	echo "About to assign ${#target_agent_ids[@]} remote agents to project #${action}"
+for agent_id in "${target_agent_ids[@]}"
+do
+	curl -H 'Accept: application/json' -X PUT -su "${bamboo_user}:${BAMBOO_PASSWORD}" \
+	"${bamboo_url}/rest/api/latest/agent/${agent_id}/disable" | jq -M .
+done
 
-	for agent_id in "${target_agent_ids[@]}"
-	do
-		query_string="assignmentType=PROJECT&entityId=${action}&executorId=${agent_id}&executorType=AGENT"
-		curl -H 'Accept: application/json' -X POST -su "${bamboo_user}:${BAMBOO_PASSWORD}" \
-		"${bamboo_url}/rest/api/latest/agent/assignment?${query_string}" | jq -M .
-	done
-fi
 echo 'Done'
