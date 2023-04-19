@@ -34,3 +34,13 @@ all:
           ansible_host: 10.160.28.17
           inventory:
             db_name: openboxes
+dbservers:
+  children:
+    dev:
+    stg:
+    prd:
+webservers:
+  children:
+    dev:
+    stg:
+    prd:

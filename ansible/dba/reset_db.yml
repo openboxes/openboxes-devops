@@ -1,4 +1,5 @@
-- name: Resetting OpenBoxes database (please allow 15-20 minutes)
+- name: Resetting OpenBoxes database (please allow an hour or so)
+  any_errors_fatal: true
   hosts: all:!prd
   vars:
     db_username: openboxes
@@ -17,45 +18,55 @@
         name: tomcat
         state: stopped
 
-    - name: Clobbering mysql database
-      register: reset_db
-      ansible.builtin.script:
-        cmd: |
-          ../scripts/reset_db.bash \
-          {{ '-s' if use_sudo else '' }} -d {{ inventory.db_name }} -u {{ db_username }}
-      environment:
-        DB_ROOT_PASSWORD: "{{ vault.db_users.root.password }}"
-        DB_USER_PASSWORD: "{{ vault.db_users[db_username].password }}"
-
-    - name: Collecting script output
-      when: reset_db.stdout_lines is defined
-      ansible.builtin.debug:
-        msg:
-          - "{{ reset_db.stdout_lines \
-              | regex_replace(vault.db_users.root.password, '********') \
-              | regex_replace(vault.db_users[db_username].password, '********') }}"
-          - "{{ reset_db.stderr_lines \
-              | regex_replace(vault.db_users.root.password, '********') \
-              | regex_replace(vault.db_users[db_username].password, '********') }}"
-
-    - name: Restarting MariaDB service
-      ansible.builtin.systemd:
-        daemon_reload: true
-        name: mysql
-        state: restarted
-
-    - name: Restarting and verifying Tomcat on web-serving hosts
-      when: inventory.get('tomcat', {}).get('enabled')
+    - name: Resetting database
+      when: inventory.get('mysql', {}).get('enabled')
       block:
-        - name: Restarting Tomcat service on web-serving hosts
+
+        - name: Clobbering mysql database
+          register: reset_db
+          ansible.builtin.script:
+            cmd: >
+              ../scripts/reset_db.bash
+              {{ '-s' if use_sudo else '' }}
+              -c {{ inventory.get('remote_webserver', 'localhost') }}
+              -d {{ inventory.db_name }}
+              -u {{ db_username }}
+          environment:
+            DB_ROOT_PASSWORD: "{{ vault.db_users.root.password }}"
+            DB_USER_PASSWORD: "{{ vault.db_users[db_username].password }}"
+
+        - name: Collecting script output
+          when: reset_db.stdout_lines is defined
+          ansible.builtin.debug:
+            msg:
+              - "{{ reset_db.stdout_lines \
+                  | regex_replace(vault.db_users.root.password, '********') \
+                  | regex_replace(vault.db_users[db_username].password, '********') }}"
+              - "{{ reset_db.stderr_lines \
+                  | regex_replace(vault.db_users.root.password, '********') \
+                  | regex_replace(vault.db_users[db_username].password, '********') }}"
+
+        - name: Restarting MariaDB service
           ansible.builtin.systemd:
             daemon_reload: true
-            name: tomcat
+            name: mysql
             state: restarted
-        - name: "Waiting for 200 from https://...{{ inventory.app_context }}"
-          delay: 15
-          retries: 60
-          register: https_response
-          until: https_response.status == 200
-          ansible.builtin.uri:
-            url: "https://{{ ansible_fqdn }}{{ inventory.app_context }}"
+
+    - name: Restarting Tomcat service on web-serving hosts
+      when: inventory.get('tomcat', {}).get('enabled')
+      ansible.builtin.systemd:
+        daemon_reload: true
+        name: tomcat
+        state: restarted
+
+    - name: "Waiting for 200 from https://...{{ inventory.app_context }}"
+      delay: 30
+      retries: 180  # # migrations can take a very long time starting from scratch
+      register: https_response
+      until: https_response.status == 200
+      ansible.builtin.uri:
+        url: "https://{{ inventory.get('remote_webserver', ansible_fqdn) }}{{ inventory.app_context }}"
+        validate_certs: false
+
+- name: Re-enabling PIH user access
+  ansible.builtin.import_playbook: ../playbooks/enable_pih_user_access.yml
