@@ -54,11 +54,16 @@ all:
           ansible_host: 74.50.49.135
           inventory:
             <<: *big_webserver_inventory
+            additional_domains:
+              - obnav.pih-emr.org
+              - openboxes.pih-emr.org
             db_url: jdbc:mysql://dbprd.pih-emr.org:3306/openboxes
         obstg:
           ansible_host: 74.50.49.133
           inventory:
             <<: *big_webserver_inventory
+            additional_domains:
+              - obnavstage.pih-emr.org
             db_url: jdbc:mysql://dbstg.pih-emr.org:3306/openboxes
 
     big_dbservers:
