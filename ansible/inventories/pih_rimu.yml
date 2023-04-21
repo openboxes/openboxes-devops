@@ -22,8 +22,7 @@ all:
       mysql: &common_mysql
         innodb_use_native_aio: 1
         long_query_time: 1
-        query_cache_size: 16777216  # 16 MBytes
-        query_cache_type: 1
+        query_cache_size: 67108864  # 64 MBytes
         slow_query_log: 1
       tomcat: &common_tomcat
         newsize: 256m

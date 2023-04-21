@@ -22,11 +22,14 @@ general_log_file = /var/log/mysql/general.log
 
 {% if inventory.get('mysql', {}).get('innodb_buffer_pool_size') %}
 innodb_buffer_pool_size = {{ inventory.mysql.innodb_buffer_pool_size }}
+innodb_log_file_size = {{ inventory.mysql.innodb_buffer_pool_size // 4 }}
 {% endif %}
 
 {% if inventory.get('mysql', {}).get('innodb_use_native_aio') %}
 innodb_use_native_aio = {{ inventory.mysql.innodb_use_native_aio }}
 {% endif %}
+
+join_buffer_size = 1048576  # 1 MByte, mysqltuner recommendation
 
 log_ddl_recovery = /var/log/mysql/ddl_recovery.log
 log_error = /var/log/mysql/error.log
@@ -36,14 +39,16 @@ long_query_time = {{ inventory.mysql.long_query_time }}
 {% endif %}
 
 {% if inventory.get('mysql', {}).get('query_cache_size') %}
+query_cache_limit = {{ inventory.mysql.query_cache_size // 4 }}
 query_cache_size = {{ inventory.mysql.query_cache_size }}
+query_cache_type = 2
 {% endif %}
 
 query_cache_strip_comments = 1
 
-{% if inventory.get('mysql', {}).get('query_cache_type') %}
-query_cache_type = {{ inventory.mysql.query_cache_type }}
-{% endif %}
+performance_schema = {{ 1 if ('dev' in group_names or 'stg' in group_names) else 0 }}
+
+read_rnd_buffer_size = 1048576  # 1 MByte, mysqltuner recommendation
 
 #
 # Ideally, this would be 1, but (a) the Grails 1 branch doesn't work with it,
@@ -60,6 +65,10 @@ slow_query_log_file = /var/log/mysql/slow.log
 
 sql_mode = ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,STRICT_TRANS_TABLES
 
+sort_buffer_size = 8388608  # 8 MBytes, mysqltuner recommendation
+
 ssl_ca = /etc/letsencrypt/live/{{ ansible_fqdn }}/fullchain.pem
 ssl_cert = /etc/letsencrypt/live/{{ ansible_fqdn }}/cert.pem
 ssl_key = /etc/letsencrypt/live/{{ ansible_fqdn }}/privkey.pem
+
+table_definition_cache = 512  # mysqltuner recommendation
