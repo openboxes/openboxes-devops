@@ -37,12 +37,15 @@
 
     - name: Installing td-agent-bit for log integration
       block:
+
         - name: Adding fluent-bit apt key
           ansible.builtin.apt_key:
             url: https://packages.fluentbit.io/fluentbit.key
+
         - name: Adding fluent-bit apt repository
           ansible.builtin.apt_repository:
             repo: deb https://packages.fluentbit.io/ubuntu/jammy jammy main
+
         - name: Installing td-agent-bit with apt
           register: apt_bit_install
           ansible.builtin.apt:
@@ -51,17 +54,20 @@
             state: latest
             update_cache: true
             pkg: td-agent-bit
+
         - name: Collecting apt install output
           when: apt_bit_install.stdout_lines is defined
           ansible.builtin.debug:
             msg:
               - "{{ apt_bit_install.stdout_lines }}"
               - "{{ apt_bit_install.stderr_lines }}"
+
         - name: Reducing update frequency
           ansible.builtin.replace:
             path: /etc/td-agent-bit/td-agent-bit.conf
             regexp: '(\s*)interval_sec.*'
             replace: '\1interval_sec 60  # ANSIBLE MANAGED'
+
         - name: Restarting td-agent-bit service
           ansible.builtin.systemd:
             daemon_reload: true
@@ -88,6 +94,7 @@
     - name: Installing New Relic MariaDB integration
       when: inventory.get('mysql', {}).get('enabled')
       block:
+
         - name: Creating database user for New Relic
           changed_when: true
           no_log: true
@@ -103,6 +110,7 @@
                 GRANT REPLICATION CLIENT ON *.* TO 'newrelic'@'localhost' WITH MAX_USER_CONNECTIONS 5;
                 GRANT SELECT ON *.* TO 'newrelic'@'localhost' WITH MAX_USER_CONNECTIONS 5;
                 FLUSH PRIVILEGES;
+
         - name: Installing nri-mysql with apt
           register: apt_nri_mysql_install
           ansible.builtin.apt:
@@ -111,12 +119,14 @@
             state: latest
             update_cache: true
             pkg: nri-mysql
+
         - name: Collecting apt install output
           when: apt_nri_mysql_install.stdout_lines is defined
           ansible.builtin.debug:
             msg:
               - "{{ apt_nri_mysql_install.stdout_lines }}"
               - "{{ apt_nri_mysql_install.stderr_lines }}"
+
         - name: Applying default New Relic MariaDB configuration
           ansible.builtin.copy:
             dest: /etc/newrelic-infra/integrations.d/mysql-config.yml
@@ -125,6 +135,14 @@
             owner: root
             remote_src: true
             src: /etc/newrelic-infra/integrations.d/mysql-config.yml.sample
+
+        - name: Setting New Relic MariaDB password
+          ansible.builtin.replace:
+            path: /etc/newrelic-infra/integrations.d/mysql-config.yml
+            regexp: '(\s*)#?\s*PASSWORD:.*'
+            replace: "\\1# ANSIBLE MANAGED\\1PASSWORD: {{ vault.db_users.newrelic.password }}"
+          no_log: true
+
         - name: Fine-tuning New Relic MariaDB configuration
           ansible.builtin.replace:
             path: /etc/newrelic-infra/integrations.d/mysql-config.yml
@@ -141,12 +159,11 @@
               replace: '\1EXTENDED_MY_ISAM_METRICS: true  # ANSIBLE MANAGED'
             - regexp: '(\s*)#?\s*HOSTNAME:.*'
               replace: "\\1HOSTNAME: {{ ansible_fqdn }}  # ANSIBLE MANAGED"
-            - regexp: '(\s*)#?\s*PASSWORD:.*'
-              replace: "\\1# ANSIBLE MANAGED\\1PASSWORD: {{ vault.db_users.newrelic.password }}"
             - regexp: '(\s*)#?\s*SOCKET:.*'
               replace: '\1SOCKET: /run/mysqld/mysqld.sock  # ANSIBLE MANAGED'
             - regexp: '(\s*)labels:'
               replace: "\\1labels:\\1  hostname: {{ ansible_fqdn }}  # ANSIBLE MANAGED"
+
         - name: Applying default MariaDB log forwarding config
           ansible.builtin.copy:
             dest: /etc/newrelic-infra/logging.d/mysql-log.yml
@@ -160,6 +177,7 @@
     - name: Installing New Relic nginx integration
       when: inventory.get('tomcat', {}).get('enabled')
       block:
+
         - name: Installing nri-nginx with apt
           register: apt_nri_nginx_install
           ansible.builtin.apt:
@@ -168,12 +186,14 @@
             state: latest
             update_cache: true
             pkg: nri-nginx
+
         - name: Collecting apt install output
           when: apt_nri_nginx_install.stdout_lines is defined
           ansible.builtin.debug:
             msg:
               - "{{ apt_nri_nginx_install.stdout_lines }}"
               - "{{ apt_nri_nginx_install.stderr_lines }}"
+
         - name: Applying default New Relic nginx configuration
           ansible.builtin.copy:
             dest: /etc/newrelic-infra/integrations.d/nginx-config.yml
@@ -182,6 +202,7 @@
             owner: root
             remote_src: true
             src: /etc/newrelic-infra/integrations.d/nginx-config.yml.sample
+
         - name: Fine-tuning New Relic nginx configuration
           ansible.builtin.replace:
             path: /etc/newrelic-infra/integrations.d/nginx-config.yml
@@ -194,6 +215,7 @@
               replace: "\\1STATUS_MODULE: ngx_http_stub_status_module  # ANSIBLE MANAGED"
             - regexp: '(\s*)labels:'
               replace: "\\1labels:\\1  hostname: {{ ansible_fqdn }}  # ANSIBLE MANAGED"
+
         - name: Applying default nginx log forwarding config
           ansible.builtin.copy:
             dest: /etc/newrelic-infra/logging.d/nginx-log.yml
@@ -206,6 +228,7 @@
     - name: Installing New Relic Tomcat integration
       when: inventory.get('tomcat', {}).get('enabled')
       block:
+
         - name: Creating temporary download directory
           register: tmp_download_dir
           ansible.builtin.tempfile:
@@ -220,6 +243,7 @@
           loop:
             - dest: "{{ tmp_download_dir.path }}/newrelic-java-agent.zip"
               url: "https://download.newrelic.com/newrelic/java-agent/newrelic-agent/{{ newrelic_version }}/newrelic-java.zip"
+
         - name: Unpacking New Relic Tomcat agent
           ansible.builtin.unarchive:
             dest: "/var/lib/{{ item }}"
@@ -230,8 +254,18 @@
           loop:
             - tomcat7
             - tomcat85
-        - name: Editing New Relic Tomcat agent yml files
+
+        - name: Setting New Relic Tomcat agent api key
+          ansible.builtin.replace:
+            path: "{{ item }}"
+            regexp: '^  license_key:.*$'
+            replace: "  # ANSIBLE MANAGED\n  license_key: {{ vault.new_relic.api_key }}"
           no_log: true
+          loop:
+            - /var/lib/tomcat7/newrelic/newrelic.yml
+            - /var/lib/tomcat85/newrelic/newrelic.yml
+
+        - name: Editing New Relic Tomcat agent yml files
           ansible.builtin.replace:
             path: "{{ item.path }}"
             regexp: "{{ item.regexp }}"
@@ -250,12 +284,6 @@
               regexp: '(\s*)labels:'
               replace: "\\1labels:\\1  hostname: {{ ansible_fqdn }}  # ANSIBLE MANAGED"
             - path: /var/lib/tomcat7/newrelic/newrelic.yml
-              regexp: '^  license_key:.*$'
-              replace: "  # ANSIBLE MANAGED\n  license_key: {{ vault.new_relic.api_key }}"
-            - path: /var/lib/tomcat85/newrelic/newrelic.yml
-              regexp: '^  license_key:.*$'
-              replace: "  # ANSIBLE MANAGED\n  license_key: {{ vault.new_relic.api_key }}"
-            - path: /var/lib/tomcat7/newrelic/newrelic.yml
               regexp: '^  log_file_name: newrelic_agent.log'
               replace: '  # ANSIBLE MANAGED\n  log_file_name: STDOUT'
             - path: /var/lib/tomcat85/newrelic/newrelic.yml
@@ -267,6 +295,7 @@
 #             - path: /var/lib/tomcat85/newrelic/newrelic.yml
 #               regexp: '^  enable_auto_app_naming: .*$'
 #               replace: "  # ANSIBLE MANAGED\n  enable_auto_app_naming: false"
+
         - name: Adding New Relic flags to Tomcat's setenv.sh
           ansible.builtin.lineinfile:
             insertafter: EOF
@@ -322,22 +351,24 @@
     - name: Configuring Sentry
       when: ansible_hostname in vault.get('sentry_dsn', {})
       block:
+
         - name: Adding Sentry flags to Tomcat's setenv.sh
           ansible.builtin.lineinfile:
             insertafter: EOF
-            line: "{{ item.line }}"
-            path: "{{ item.path }}"
+            line: "export SENTRY_DSN={{ vault.sentry_dsn[ansible_hostname] }}  # ANSIBLE MANAGED"
+            path: "{{ item }}"
+          no_log: true
           loop:
-            - line: "export SENTRY_DSN={{ vault.sentry_dsn[ansible_hostname] }}  # ANSIBLE MANAGED"
-              path: /var/lib/tomcat7/bin/setenv.sh
-            - line: "export SENTRY_DSN={{ vault.sentry_dsn[ansible_hostname] }}  # ANSIBLE MANAGED"
-              path: /var/lib/tomcat85/bin/setenv.sh
+            - /var/lib/tomcat7/bin/setenv.sh
+            - /var/lib/tomcat85/bin/setenv.sh
+
         - name: Activating Grails' Sentry plugin
           ansible.builtin.lineinfile:
             insertafter: EOF
             line: 'grails.plugins.raven.active = true'
             path: /home/tomcat/.grails/openboxes-config.groovy
             regexp: 'grails.plugins.raven.active = false'
+
         - name: Configuring Grails' Sentry plugin
           ansible.builtin.lineinfile:
             insertafter: 'grails.plugins.raven.active'
@@ -362,12 +393,14 @@
     - name: Restarting Tomcat and Nginx on web-serving hosts
       when: inventory.get('tomcat', {}).get('enabled')
       block:
+
         - name: Restarting Tomcat service on web-serving hosts
           ansible.builtin.systemd:
             daemon_reload: true
             enabled: true
             name: tomcat
             state: restarted
+
         - name: Restarting Nginx service on web-serving hosts
           ansible.builtin.systemd:
             daemon_reload: true

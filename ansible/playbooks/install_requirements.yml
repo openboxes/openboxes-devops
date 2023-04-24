@@ -547,12 +547,14 @@
     - name: Enabling Tomcat and Nginx on web-serving hosts
       when: inventory.get('tomcat', {}).get('enabled')
       block:
+
         - name: Restarting Tomcat service on web-serving hosts
           ansible.builtin.systemd:
             daemon_reload: true
             enabled: true
             name: tomcat
             state: restarted
+
         - name: Restarting Nginx service on web-serving hosts
           ansible.builtin.systemd:
             daemon_reload: true
@@ -563,12 +565,14 @@
     - name: Disabling Tomcat and Nginx on db-exclusive hosts
       when: not inventory.get('tomcat', {}).get('enabled')
       block:
+
         - name: Disabling Tomcat service on db-exclusive hosts
           ansible.builtin.systemd:
             daemon_reload: false
             enabled: false
             name: tomcat
             state: stopped
+
         - name: Disabling Nginx service on db-exclusive hosts
           ansible.builtin.systemd:
             daemon_reload: false
