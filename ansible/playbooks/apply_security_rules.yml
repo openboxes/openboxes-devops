@@ -18,7 +18,7 @@
 
     - name: Enabling ssh access while limiting brute-force login attempts
       community.general.ufw:
-        comment: defend against brute-force ssh login attempts
+        comment: allow ssh but defend against brute-force login attempts
         port: 22
         proto: tcp
         rule: limit
@@ -26,6 +26,7 @@
     - name: Enabling http(s) access on web-serving hosts
       when: inventory.get('tomcat', {}).get('enabled')
       community.general.ufw:
+        comment: allow http(s) access from anywhere
         port: "{{ item }}"
         proto: tcp
         rule: allow
