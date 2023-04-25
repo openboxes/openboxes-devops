@@ -66,6 +66,21 @@ $ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/
 $ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/reset_db.yml -l obdev1
 ```
 
+## Example 3: Use playbooks to copy the production database to the staging instance
+
+```
+# Extract database data from the production instance in Azure
+$ ansible-playbook -e @secrets/vault_azure -i inventories/pih_azure.yml dba/archive_db.yml -l obnav
+
+#
+# Upload that database data to the stg instance.
+#
+# Note the build target in this case is a group, not a host. This playbook not
+# only needs to replace the database on dbstg, but also restart tomcat on obstg.
+#
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restore_db.yml -l stg -e 'force=true'
+```
+
 ## Exceptions to the rule
 
 Legacy hosts aren't configured as consistently as those in RIMU. A few things to

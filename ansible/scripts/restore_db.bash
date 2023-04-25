@@ -10,6 +10,7 @@ usage()
     echo >&2 'Options:'
     echo >&2 '  -f Completely delete <db_name>, if it exists, before restoring -- use with care!'
     echo >&2 '  -s use sudo when accessing db server (if using auth_socket for root)'
+    echo >&2 '  -c <host_name> -- name of host from which to allow client access (default: "localhost")'
     echo >&2 '  -d <db_name> -- name under which database should be stored (default: "openboxes")'
     echo >&2 '  -i <archive_file> -- name of archive file to restore (default: "<db_name>.tgz")'
     echo >&2 '  -p <mysql_path> -- path under which mysql is installed'
@@ -19,14 +20,19 @@ usage()
 }
 
 archive_file=
+db_client='localhost'
 db_name='openboxes'
 db_user='openboxes'
 local_sudo=
 mysql_path=/usr/bin:/usr/local/mysql/bin
 
-while getopts 'd:fhi:p:r:su:' o
+while getopts 'c:d:fhi:p:r:su:' o
 do
     case "$o" in
+    c)
+        [ "$OPTARG" ] || usage
+        db_client="$OPTARG"
+        ;;
     d)
         [ "$OPTARG" ] || usage
         db_name="$OPTARG"
@@ -101,9 +107,13 @@ fi
 
 echo "Initializing database \`$db_name\` ..."
 $local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" -e "drop database if exists \`$db_name\`;"
-$local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" -e "create user if not exists '$db_user'@'localhost'; alter user '$db_user'@'localhost' identified by '$DB_USER_PASSWORD'; flush privileges;"
-$local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" -e "create database \`$db_name\` default charset utf8; grant all on \`$db_name\`.* to '$db_user'@'localhost';"
-$local_sudo mysql -u "$db_user" -p"$DB_USER_PASSWORD" "$db_name" -e 'select 1' > /dev/null
+$local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" -e "drop user if exists '$db_user'@'$db_client'; create user '$db_user'@'$db_client' identified by '$DB_USER_PASSWORD'; flush privileges;"
+$local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" -e "create database \`$db_name\` default charset utf8; grant all on \`$db_name\`.* to '$db_user'@'$db_client';"
+$local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" -e "delete from mysql.user where User = 'finance';"
+if [ "$db_client" == 'localhost' ]
+then
+    $local_sudo mysql -u "$db_user" -p"$DB_USER_PASSWORD" "$db_name" -e 'select 1' > /dev/null
+fi
 
 echo "Inserting schema into database \`$db_name\` ..."
 original_db_name=$(basename ./*-schema.sql -schema.sql)
