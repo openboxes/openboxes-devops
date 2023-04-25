@@ -1,6 +1,6 @@
 # https://confluence.atlassian.com/bamboo0802/bamboo-remote-agent-installation-guide-1103432753.html
 
-- name: Installing bamboo remote agent
+- name: Installing Bamboo remote agent
   hosts: bamboo_remote_agents
   tasks:
 
@@ -21,16 +21,20 @@
           - "{{ apt_install.stdout_lines }}"
           - "{{ apt_install.stderr_lines }}"
 
-    - name: Getting bamboo server version
+    - name: Getting Bamboo server version
+      changed_when: true
       register: server_version
       ansible.builtin.shell:
         cmd: >
+          set -euo pipefail;
           curl -H 'Accept: application/json' -X GET
           -su "{{ vault.bamboo.username }}:{{ vault.bamboo.password }}"
           {{ inventory.bamboo.server_url }}/rest/api/latest/info
           | jq -r '.version'
+      args:
+        executable: /usr/bin/bash
 
-    - name: Collecting bamboo server version
+    - name: Collecting Bamboo server version
       when: server_version.stdout_lines is defined
       ansible.builtin.debug:
         msg:
@@ -52,12 +56,12 @@
           - "{{ disable_agents.stdout_lines }}"
           - "{{ disable_agents.stderr_lines }}"
 
-    - name: Checking if bamboo remote agent is already installed
+    - name: Checking if Bamboo remote agent is already installed
       register: bamboo_remote_agent_wrapper
       ansible.builtin.stat:
         path: "{{ inventory.bamboo.remote_agent_home }}/bin/wrapper"
 
-    - name: Stopping bamboo remote agent service
+    - name: Stopping Bamboo remote agent service
       when: bamboo_remote_agent_wrapper.stat.exists
       ansible.builtin.systemd:
         daemon_reload: false
@@ -80,7 +84,7 @@
         - .npm
         - .npmrc
 
-    - name: Emptying bamboo remote agent working directory
+    - name: Emptying Bamboo remote agent working directory
       ansible.builtin.file:
         group: staff
         mode: '0750'
@@ -99,7 +103,7 @@
         path: "{{ inventory.bamboo.remote_agent_home }}/build_tools"
         state: directory
 
-    - name: Downloading bamboo remote agent
+    - name: Downloading Bamboo remote agent
       ansible.builtin.get_url:
         dest: "{{ inventory.bamboo.remote_agent_home }}/atlassian-bamboo-agent-installer.jar"
         group: staff
@@ -109,7 +113,7 @@
         # to find this URL, point a browser to {{ server_version.stdout }}/admin/agent/addRemoteAgent.action
         url: "{{ inventory.bamboo.server_url }}/agentServer/agentInstaller/atlassian-bamboo-agent-installer-{{ server_version.stdout }}.jar"
 
-    - name: Installing bamboo remote agent
+    - name: Installing Bamboo remote agent
       become: true
       become_user: bamboo
       ansible.builtin.command:
@@ -139,7 +143,7 @@
         src: /var/log/bamboo-remote-agent
         state: link
 
-    - name: Configuring bamboo agent log rotation
+    - name: Configuring Bamboo agent log rotation
       ansible.builtin.template:
         dest: /etc/logrotate.d/bamboo-remote-agent
         group: root
@@ -151,11 +155,12 @@
     # A few downstream steps check logs. Rotating them before they do so
     # prevents them from seeing dead agents' messages as signs of life.
     #
-    - name: Rotating bamboo agent logs
+    - name: Rotating Bamboo agent logs
+      changed_when: true
       ansible.builtin.command:
         cmd: logrotate --force /etc/logrotate.d/bamboo-remote-agent
 
-    - name: Touching toplevel bamboo log file
+    - name: Touching toplevel Bamboo log file
       ansible.builtin.file:
         group: staff
         mode: '0755'
@@ -163,7 +168,7 @@
         path: /var/log/bamboo-remote-agent/atlassian-bamboo-agent.log
         state: touch
 
-    - name: Symlinking toplevel bamboo log file
+    - name: Symlinking toplevel Bamboo log file
       ansible.builtin.file:
         dest: /home/bamboo/remote-agent/atlassian-bamboo-agent.log
         group: staff
@@ -208,13 +213,13 @@
         path: "{{ inventory.bamboo.remote_agent_home }}/bin/bamboo-capabilities.properties"
         state: touch
 
-    - name: Advertising ssh capabilities to bamboo
+    - name: Advertising ssh capabilities to Bamboo
       ansible.builtin.lineinfile:
         insertafter: EOF
         line: 'system.builder.command.ssh=/usr/bin/ssh'
         path: "{{ bamboo_capabilities_properties.dest }}"
 
-    - name: Advertising Grails SDK capabilities to bamboo
+    - name: Advertising Grails SDK capabilities to Bamboo
       ansible.builtin.lineinfile:
         insertafter: EOF
         line: "system.builder.grailsBuilder.Grails\\ {{ item.major_minor }}=/home/bamboo/remote-agent/build_tools/grails-{{ item.major_minor_patch }}"
@@ -225,7 +230,7 @@
         - major_minor: '3.3'
           major_minor_patch: '3.3.16'
 
-    - name: Advertising Node.js capabilities to bamboo
+    - name: Advertising Node.js capabilities to Bamboo
       ansible.builtin.lineinfile:
         insertafter: EOF
         line: "system.builder.node.Node.js\\ {{ item.major_minor }}=/home/bamboo/remote-agent/build_tools/node-v{{ item.major_minor_patch }}-linux-x64/bin/node"
@@ -254,7 +259,7 @@
       args:
         executable: /usr/bin/bash
 
-    - name: Advertising java capabilities to bamboo
+    - name: Advertising Java capabilities to Bamboo
       ansible.builtin.lineinfile:
         insertafter: EOF
         line: "system.jdk.JDK\\ {{ item.version }}={{ item.path }}"
@@ -319,7 +324,7 @@
         path: "{{ known_hosts.dest }}"
         block: "{{ lookup('ansible.builtin.file', '../secrets/known_hosts') }}"
 
-    - name: Creating systemd service for bamboo remote agent
+    - name: Creating systemd service for Bamboo remote agent
       ansible.builtin.template:
         dest: /etc/systemd/system/bamboo-remote-agent.service
         group: root
@@ -327,7 +332,7 @@
         owner: root
         src: ../templates/bamboo-remote-agent.service.j2
 
-    - name: Restarting bamboo remote agent service
+    - name: Restarting Bamboo remote agent service
       ansible.builtin.systemd:
         daemon_reload: true
         enabled: true
@@ -353,19 +358,24 @@
         msg:
           - "{{ remote_agent_id_regex.match_groups[0] }}"
 
-    - name: Waiting for bamboo server to acknowledge remote agent
+    - name: Waiting for Bamboo server to acknowledge remote agent
+      changed_when: true
       register: agent_status
       ansible.builtin.shell:
         cmd: >
+          set -euo pipefail;
           curl -H 'Accept: application/json' -X GET
           -su "{{ vault.bamboo.username }}:{{ vault.bamboo.password }}"
           {{ inventory.bamboo.server_url }}/rest/api/latest/agent/{{ remote_agent_id_regex.match_groups[0] }}/status
           | jq -r '.online'
+      args:
+        executable: /usr/bin/bash
       delay: 10
       retries: 6
       until: agent_status.stdout.find('true') != -1
 
     - name: Dedicating agent to projects
+      changed_when: true
       register: dedicate_agent
       when: inventory.get('bamboo', {}).get('project_ids')
       ansible.builtin.shell:

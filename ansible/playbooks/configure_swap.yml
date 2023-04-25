@@ -1,0 +1,42 @@
+- name: Configuring swap space
+  hosts: bamboo_remote_agents
+  tasks:
+
+    - name: Declaring swap_file mount point
+      ansible.builtin.set_fact:
+        swap_file: "/mnt/swap.{{ inventory.swap_size }}"
+
+    - name: Checking if swap file exists
+      ansible.builtin.stat:
+        path: "{{ swap_file }}"
+      register: swap_stat
+
+    - name: Allocating swap space
+      when: not swap_stat.stat.exists
+      block:
+
+        - name: Creating swap file
+          changed_when: true
+          when: not swap_stat.stat.exists
+          ansible.builtin.command: "fallocate -l {{ inventory.swap_size }} {{ swap_file }}"
+
+        - name: Setting permissions on swap file
+          ansible.builtin.file:
+            mode: '0600'
+            owner: root
+            path: "{{ swap_file }}"
+
+        - name: Formatting swap file
+          changed_when: true
+          when: not swap_stat.stat.exists
+          ansible.builtin.command: "mkswap {{ swap_file }}"
+
+    - name: Adding swap file to fstab
+      ansible.builtin.lineinfile:
+        dest: /etc/fstab
+        line: "{{ swap_file }} none swap sw 0 0"
+        regexp: "{{ swap_file }}"
+
+    - name: Enabling swap
+      changed_when: true
+      ansible.builtin.command: swapon -a
