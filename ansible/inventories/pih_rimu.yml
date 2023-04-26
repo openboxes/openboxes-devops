@@ -159,7 +159,7 @@ all:
             <<: *little_instance_inventory
             tomcat:
               <<: *little_tomcat
-              jdk: zulu7
+              jdk: zulu8
               name: tomcat85
         obdev4:
           ansible_host: 74.50.49.134
@@ -167,8 +167,16 @@ all:
             <<: *little_instance_inventory
             tomcat:
               <<: *little_tomcat
-              jdk: zulu8
-              name: tomcat85
+              jdk: zulu7
+              name: tomcat7
+        obdev5:
+          ansible_host: 74.50.48.61
+          inventory:
+            <<: *little_instance_inventory
+            tomcat:
+              <<: *little_tomcat
+              jdk: zulu7
+              name: tomcat7
     bamboo_remote_agents:
       vars:
         inventory:
