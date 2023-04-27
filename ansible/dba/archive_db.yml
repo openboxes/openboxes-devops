@@ -7,7 +7,7 @@
 
   tasks:
 
-    - name: Dumping mysql database (this can be slow)
+    - name: Dumping database (this can be slow)
       register: archive_db
       ansible.builtin.script:
         cmd: >

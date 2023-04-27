@@ -119,6 +119,7 @@ echo "Inserting schema into database \`$db_name\` ..."
 original_db_name=$(basename ./*-schema.sql -schema.sql)
 cat "${original_db_name}-schema.sql" \
     | sed "/SQL SECURITY DEFINER/! s/\`$original_db_name\`/\`$db_name\`/g" \
+    | sed 's/utf8mb4_0900_ai_ci/utf8mb4_general_ci/g' \
     | $local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" "$db_name"
 
 #
@@ -144,6 +145,9 @@ then
     echo 'Restoring previous max_allowed_packet ...'
     $local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" -e "set global max_allowed_packet=$curr_max_packet;"
 fi
+
+# clear Liquibase's change log lock (it was reserved on a different host)
+$local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" "$db_name" -e 'UPDATE DATABASECHANGELOGLOCK SET LOCKED=0, LOCKGRANTED=null, LOCKEDBY=null where ID=1;'
 
 echo -n "Counting products in database \`$db_name\` ..."
 product_cnt=$($local_sudo mysql -u "$db_user" -p"$DB_USER_PASSWORD" "$db_name" -Nse 'select count(id) from product;')

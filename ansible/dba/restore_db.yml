@@ -32,7 +32,7 @@
             owner: root
             src: "{{ archive_file }}"
 
-        - name: Importing mysql archive (this can be slow, too)
+        - name: Importing database archive (this can be slow, too)
           register: restore_db
           ansible.builtin.script:
             cmd: >
@@ -59,13 +59,13 @@
             path: "{{ archive_file | basename }}"
             state: absent
 
-        - name: Restarting MariaDB service
+        - name: Restarting database service
           ansible.builtin.systemd:
             daemon_reload: true
             name: mysql
             state: restarted
 
-    - name: Restarting Tomcat service on web-serving hosts
+    - name: Restarting Tomcat service
       when: inventory.get('tomcat', {}).get('enabled')
       ansible.builtin.systemd:
         daemon_reload: true

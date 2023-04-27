@@ -13,8 +13,30 @@
       ansible.builtin.fail:
         msg: this playbook requires Ubuntu 22.04 LTS
 
-    - name: Removing apache2 and old MariaDB releases
+    - name: Checking if host is configured for MariaDB
+      register: mariadb_config_file
+      ansible.builtin.stat:
+        path: /etc/mysql/mariadb.conf.d/70-openboxes.cnf
+
+    - name: Preventing accidental MariaDB -> MySQL 8 sidegrade
+      when: inventory.db_type == 'mysql' and mariadb_config_file.stat.exists
+      ansible.builtin.fail:
+        msg: host has MariaDB config, but Ansible is configured to install MySQL 8!
+
+    - name: Checking if host is configured for MySQL 8
+      register: mysql8_config_file
+      ansible.builtin.stat:
+        path: /etc/mysql/mysql.conf.d/70-openboxes.cnf
+
+    - name: Preventing accidental MySQL 8 -> MariaDB sidegrade
+      when: inventory.db_type == 'mariadb' and mysql8_config_file.stat.exists
+      ansible.builtin.fail:
+        msg: host has MySQL 8 config, but Ansible is configured to install MariaDB!
+
+    - name: Removing apache2 and old/competing database releases
       register: apt_uninstall
+      vars:
+        competitor: "{{ 'mariadb' if inventory.db_type == 'mysql' else 'mysql' }}"
       ansible.builtin.apt:
         autoremove: true
         purge: true
@@ -23,6 +45,8 @@
           - apache2
           - mariadb-client-10.6
           - mariadb-server-10.6
+          - "{{ competitor }}-client"
+          - "{{ competitor }}-server"
 
     - name: Collecting apt uninstall output
       when: apt_uninstall.stdout_lines is defined
@@ -32,6 +56,7 @@
           - "{{ apt_uninstall.stderr_lines }}"
 
     - name: Adding MariaDB apt key and repository
+      when: inventory.db_type == 'mariadb'
       ansible.builtin.shell:
         cmd: >-
           set -euo pipefail &&
@@ -40,6 +65,12 @@
         creates: /etc/apt/sources.list.d/mariadb.list
       args:
         executable: /usr/bin/bash
+
+    - name: Removing MariaDB repository
+      when: inventory.db_type != 'mariadb'
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/mariadb.list
+        state: absent
 
     - name: Adding Nginx apt key
       ansible.builtin.apt_key:
@@ -69,9 +100,8 @@
         pkg:
           - libaio1
           - libtcnative-1
-          - mariadb-backup
-          - mariadb-client
-          - mariadb-server
+          - "{{ inventory.db_type }}-client"
+          - "{{ inventory.db_type }}-server"
           - nginx
           - snapd
           - zulu-7
@@ -393,13 +423,13 @@
             - /etc/letsencrypt/archive
             - /etc/letsencrypt/live
 
-        - name: Enabling mysql group to read private Certbot keys
+        - name: Enabling database to read private Certbot keys
           ansible.builtin.file:
             group: mysql
             mode: '0640'
             path: "/etc/letsencrypt/live/{{ ansible_fqdn }}/privkey.pem"
 
-        - name: Reminding mysql to reload Certbot keys weekly
+        - name: Reminding database to reload Certbot keys weekly
           ansible.builtin.cron:
             job: mysqladmin flush-ssl
             name: mysqladmin flush-ssl
@@ -464,26 +494,34 @@
         - tomcat7
         - tomcat85
 
-    - name: Configuring MariaDB
-      ansible.builtin.template:
-        dest: /etc/mysql/mariadb.conf.d/70-openboxes.cnf
-        group: root
-        mode: '0444'
-        owner: root
-        src: ../templates/my.cnf.j2
+    - name: Disabling database service
+      when: not inventory.get('mysql', {}).get('enabled')
+      ansible.builtin.systemd:
+        daemon_reload: true
+        enabled: true
+        name: mysql
+        state: stopped
 
-    - name: Configuring MariaDB service on db-serving hosts
+    - name: Configuring database
       when: inventory.get('mysql', {}).get('enabled')
       block:
 
-        - name: Enabling MariaDB service
+        - name: Configuring database with my.cnf
+          ansible.builtin.template:
+            dest: "/etc/mysql/{{ inventory.db_type }}.conf.d/70-openboxes.cnf"
+            group: root
+            mode: '0444'
+            owner: root
+            src: ../templates/my.cnf.j2
+
+        - name: Enabling database service
           ansible.builtin.systemd:
             daemon_reload: true
             enabled: true
             name: mysql
             state: restarted
 
-        - name: Assigning root password for MariaDB
+        - name: Assigning database root password
           changed_when: true
           no_log: true
           ansible.builtin.command:
@@ -497,20 +535,29 @@
                 ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ vault.db_users.root.password }}';
                 FLUSH PRIVILEGES;
 
-        - name: Securing MariaDB via mysql_secure_installation
+        - name: Running mysql_secure_installation
           register: mysql_secure_installation
           ansible.builtin.expect:
-            command: mysql_secure_installation
+            command: "mysql_secure_installation -p{{ vault.db_users.root.password }}"
             responses:
-              'Enter current password for root \(enter for none\):': "{{ vault.db_users.root.password }}"
-              'Switch to unix_socket authentication \[Y/n\]': 'Y'
-              'Change the root password\? \[Y/n\]': 'n'
-              'Remove anonymous users\? \[Y/n\]': 'Y'
-              'Disallow root login remotely\? \[Y/n\]': 'Y'
-              'Remove test database and access to it\? \[Y/n\]': 'Y'
-              'Reload privilege tables now\? \[Y/n\]': 'Y'
+              'Press y\|Y for Yes, any other key for No(.*)': 'n'  # disable Oracle MySQL's VALIDATE PASSWORD COMPONENT
+              'Enter current password for root(.*)': "{{ vault.db_users.root.password }}"
+              'Switch to unix_socket authentication(.*)': 'Y'
+              'Change the root password(.*)': 'n'
+              'Change the password for root(.*)': 'n'
+              'Remove anonymous users(.*)': 'Y'
+              'Disallow root login remotely(.*)': 'Y'
+              'Remove test database and access to it(.*)': 'Y'
+              'Reload privilege tables now(.*)': 'Y'
             timeout: 5
-          failed_when: '"Failed!" in mysql_secure_installation.stdout_lines'
+          failed_when: >
+            'Failed!' in mysql_secure_installation.stdout or
+            'All done!' not in mysql_secure_installation.stdout or
+            mysql_secure_installation.stdout.count('... skipping.') > 1 or
+            not (
+              mysql_secure_installation.stdout.count('Success.') == 5 or
+              mysql_secure_installation.stdout.count('Success!') == 6
+            )
 
         - name: Collecting mysql_secure_installation output
           when: mysql_secure_installation.stdout_lines is defined
@@ -518,10 +565,9 @@
             msg:
               - "{{ mysql_secure_installation.stdout_lines | regex_replace(vault.db_users.root.password, '********') }}"
 
-        - name: Enabling local DB access
+        - name: Enabling database access for openboxes web application
           changed_when: true
           no_log: true
-          when: not inventory.get('remote_webserver')
           ansible.builtin.command:
             argv:
               - mysql
@@ -529,69 +575,44 @@
               - root
               - -p{{ vault.db_users.root.password }}
               - -e
-              - >-
-                GRANT ALL PRIVILEGES ON `{{ inventory.db_name }}`.*
-                TO 'openboxes'@'localhost'
-                IDENTIFIED BY '{{ vault.db_users.openboxes.password }}';
-                GRANT process ON *.* TO 'openboxes'@'localhost';
+              - |
+                DROP USER IF EXISTS 'openboxes'@'{{ item }}';
+                CREATE USER IF NOT EXISTS 'openboxes'@'{{ item }}' IDENTIFIED BY '{{ vault.db_users.openboxes.password }}';
+                GRANT ALL PRIVILEGES ON `{{ inventory.db_name }}`.* TO 'openboxes'@'{{ item }}';
+                GRANT process ON *.* TO 'openboxes'@'{{ item }}';
                 FLUSH PRIVILEGES;
+          loop: "{{ ['localhost', inventory.get('remote_webserver')] | reject('none') }}"
 
-        - name: Enabling remote DB access
-          changed_when: true
-          no_log: true
-          when: inventory.get('remote_webserver')
-          ansible.builtin.command:
-            argv:
-              - mysql
-              - -u
-              - root
-              - -p{{ vault.db_users.root.password }}
-              - -e
-              - >-
-                GRANT ALL PRIVILEGES ON `{{ inventory.db_name }}`.*
-                TO 'openboxes'@'{{ inventory.remote_webserver }}'
-                IDENTIFIED BY '{{ vault.db_users.openboxes.password }}';
-                GRANT process ON *.* TO 'openboxes'@'{{ inventory.remote_webserver }}';
-                FLUSH PRIVILEGES;
-
-    - name: Disabling MariaDB service on non-db-serving hosts
-      when: not inventory.get('mysql', {}).get('enabled')
-      ansible.builtin.systemd:
-        daemon_reload: true
-        enabled: true
-        name: mysql
-        state: stopped
-
-    - name: Enabling Tomcat and Nginx on web-serving hosts
+    - name: Enabling Tomcat and Nginx
       when: inventory.get('tomcat', {}).get('enabled')
       block:
 
-        - name: Restarting Tomcat service on web-serving hosts
+        - name: Restarting Tomcat service
           ansible.builtin.systemd:
             daemon_reload: true
             enabled: true
             name: tomcat
             state: restarted
 
-        - name: Restarting Nginx service on web-serving hosts
+        - name: Restarting Nginx service
           ansible.builtin.systemd:
             daemon_reload: true
             enabled: true
             name: nginx
             state: restarted
 
-    - name: Disabling Tomcat and Nginx on db-exclusive hosts
+    - name: Disabling Tomcat and Nginx
       when: not inventory.get('tomcat', {}).get('enabled')
       block:
 
-        - name: Disabling Tomcat service on db-exclusive hosts
+        - name: Disabling Tomcat service
           ansible.builtin.systemd:
             daemon_reload: false
             enabled: false
             name: tomcat
             state: stopped
 
-        - name: Disabling Nginx service on db-exclusive hosts
+        - name: Disabling Nginx service
           ansible.builtin.systemd:
             daemon_reload: false
             enabled: false

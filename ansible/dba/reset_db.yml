@@ -22,7 +22,7 @@
       when: inventory.get('mysql', {}).get('enabled')
       block:
 
-        - name: Clobbering mysql database
+        - name: Clobbering database
           register: reset_db
           ansible.builtin.script:
             cmd: >
@@ -46,13 +46,13 @@
                   | regex_replace(vault.db_users.root.password, '********') \
                   | regex_replace(vault.db_users[db_username].password, '********') }}"
 
-        - name: Restarting MariaDB service
+        - name: Restarting database service
           ansible.builtin.systemd:
             daemon_reload: true
             name: mysql
             state: restarted
 
-    - name: Restarting Tomcat service on web-serving hosts
+    - name: Restarting Tomcat service
       when: inventory.get('tomcat', {}).get('enabled')
       ansible.builtin.systemd:
         daemon_reload: true
@@ -61,7 +61,7 @@
 
     - name: "Waiting for 200 from https://...{{ inventory.app_context }}"
       delay: 30
-      retries: 180  # # migrations can take a very long time starting from scratch
+      retries: 180  # migrations can take a very long time starting from scratch
       register: https_response
       until: https_response.status == 200
       ansible.builtin.uri:

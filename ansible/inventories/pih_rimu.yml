@@ -6,6 +6,7 @@ all:
     inventory: &common_inventory
       app_context: /openboxes
       db_name: openboxes
+      db_type: mariadb
       mail:
         admins:
           - justin@openboxes.com
@@ -20,6 +21,7 @@ all:
         sender: openboxes@pih.org
         username: apikey
       mysql: &common_mysql
+        # settings in the `mysql` block will affect MariaDB and MySQL 8.0
         innodb_use_native_aio: 1
         long_query_time: 1
         query_cache_size: 67108864  # 64 MBytes
@@ -178,6 +180,8 @@ all:
           ansible_host: 74.50.48.61
           inventory:
             <<: *little_instance_inventory
+            db_type: mysql
+            db_url: jdbc:mysql://localhost:3306/openboxes?allowPublicKeyRetrieval=true&useSSL=false
             tomcat:
               <<: *little_tomcat
               jdk: zulu7
@@ -203,6 +207,7 @@ all:
         obdev2:
         obdev3:
         obdev4:
+        obdev5:
     prd:
       hosts:
         obprd:

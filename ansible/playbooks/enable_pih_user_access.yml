@@ -122,7 +122,7 @@
         - tomcat7
         - tomcat85
 
-    - name: Removing any previous finance user records
+    - name: Removing all DB access for finance user
       changed_when: true
       when: inventory.get('mysql', {}).get('enabled')
       ansible.builtin.command:
@@ -175,7 +175,7 @@
          | map(attribute='ips')
          | flatten }}
 
-    - name: Restarting Tomcat service on web-serving hosts
+    - name: Restarting Tomcat service
       when: inventory.get('tomcat', {}).get('enabled')
       ansible.builtin.systemd:
         daemon_reload: true
