@@ -359,6 +359,14 @@
             src: ../templates/default.conf.j2
             validate: 'nginx -t -c %s -c /etc/nginx/nginx.conf'
 
+        - name: Temporarily opening port 80 on non-web-serving hosts
+          when: not inventory.get('tomcat', {}).get('enabled')
+          community.general.ufw:
+            comment: 'allow certbot to access http (temporary rule)'
+            rule: allow
+            port: 80
+            proto: tcp
+
         - name: Sprinkling Certbot pixie dust over Nginx config
           changed_when: true
           register: certbot
@@ -409,6 +417,14 @@
           changed_when: not killall.stdout
           failed_when: false  # cmd failure means no workers are running, which is what we want
           register: killall
+
+        - name: Closing port 80 on non-web-serving hosts
+          when: not inventory.get('tomcat', {}).get('enabled')
+          community.general.ufw:
+            comment: 'deny http access on non-web-serving hosts'
+            rule: deny
+            port: 80
+            proto: tcp
 
     - name: Creating Grails configuration directory
       ansible.builtin.file:
