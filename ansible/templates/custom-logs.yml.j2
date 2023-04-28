@@ -1,0 +1,22 @@
+# Ansible generated this file from {{ template_path }}; do not edit locally!
+{# If this comment is present, this is the template file: disregard this warning #}
+
+logs:
+  - name: mysql slow queries
+    file: /var/log/mysql/slow.log
+    attributes:
+      logtype: mysql-slow
+
+{# The New Relic Java Agent does this for us under Java 8+ #}
+{% if inventory.get('tomcat', {}).get('jdk') == "zulu7" %}
+  - name: tomcat7
+    file: /var/log/tomcat7/catalina.out
+    attributes:
+      application: tomcat7:{{ ansible_fqdn }}
+      logtype: tomcat
+  - name: tomcat85
+    file: /var/log/tomcat85/catalina.out
+    attributes:
+      application: tomcat85:{{ ansible_fqdn }}
+      logtype: tomcat
+{% endif %}

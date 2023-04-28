@@ -342,6 +342,14 @@
           display_name: {{ ansible_fqdn }}
           enable_process_metrics: true
 
+    - name: Forwarding additional logs via NRIA
+      ansible.builtin.template:
+        dest: /etc/newrelic-infra/logging.d/custom-logs.yml
+        group: root
+        mode: '0444'
+        owner: root
+        src: ../templates/custom-logs.yml.j2
+
     - name: Correcting improperly-set PIDFile field in newrelic-infra.service
       ansible.builtin.replace:
         path: /etc/systemd/system/newrelic-infra.service
