@@ -68,7 +68,7 @@
         - tomcat7
         - tomcat85
 
-    - name: Restarting Tomcat service on web-serving hosts
+    - name: Configuring Tomcat for first Bamboo deploy
       when: inventory.get('tomcat', {}).get('enabled')
       block:
 
@@ -87,7 +87,7 @@
             state: directory
           loop: "{{ deployment_targets }}"
 
-        - name: Restarting Tomcat service on web-serving hosts
+        - name: Restarting Tomcat service
           ansible.builtin.systemd:
             daemon_reload: true
             enabled: true
@@ -100,16 +100,18 @@
             depth: 1
             paths: "{{ deployment_targets }}"
 
-        - name: Enabling empty deploy via Tomcat manager
+        - name: Starting dummy deploy with Tomcat manager
           when: find_results.matched == 0
           block:
 
-            - name: Pause until Tomcat manager is up
+            - name: Waiting until Tomcat manager is up
               register: tomcat_manager
               ansible.builtin.uri:
                 password: "{{ vault.tomcat_users.bamboo.password }}"
                 url: http://localhost:8080/manager/text
                 user: bamboo
+              delay: 10
+              retries: 6
               until: tomcat_manager.status == 200
 
             - name: Starting a dummy deploy so Bamboo has something to replace

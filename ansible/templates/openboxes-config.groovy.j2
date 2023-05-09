@@ -24,7 +24,11 @@ dataSource {
         }
     }
 {% endif %}
+{% if inventory.get('db_type') == 'mariadb' %}
     dialect = org.hibernate.dialect.MariaDB103Dialect
+{% elif inventory.get('db_type') == 'mysql' %}
+    dialect = org.hibernate.dialect.MySQL57Dialect
+{% endif %}
     idleConnectionTestPeriod = 600
     password = "{{ vault.db_users.openboxes.password }}"
     preferredTestQuery = null

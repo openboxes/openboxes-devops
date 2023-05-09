@@ -12,7 +12,7 @@
 
   tasks:
 
-    - name: Removing mysql integration from non-database hosts
+    - name: Removing database integration
       register: apt_uninstall
       when: not inventory.get('mysql', {}).get('enabled')
       ansible.builtin.apt:
@@ -20,7 +20,7 @@
         purge: true
         state: absent
 
-    - name: Removing nginx integration from non-webserver hosts
+    - name: Removing nginx integration
       register: apt_uninstall
       when: not inventory.get('tomcat', {}).get('enabled')
       ansible.builtin.apt:
@@ -75,7 +75,7 @@
             name: td-agent-bit
             state: restarted
 
-    - name: Installing New Relic infrastructure agent
+    - name: Installing New Relic infrastructure agent and plugins
       ansible.builtin.include_role:
         name: newrelic.newrelic-infra
       vars:
@@ -91,7 +91,7 @@
           - logs
 
     # https://docs.newrelic.com/install/mysql/?dropdown1=linux
-    - name: Installing New Relic MariaDB integration
+    - name: Installing New Relic database integration
       when: inventory.get('mysql', {}).get('enabled')
       block:
 
@@ -107,8 +107,8 @@
               - -e
               - >-
                 CREATE USER IF NOT EXISTS 'newrelic'@'localhost' IDENTIFIED BY '{{ vault.db_users.newrelic.password }}' WITH MAX_USER_CONNECTIONS 5;
-                GRANT REPLICATION CLIENT ON *.* TO 'newrelic'@'localhost' WITH MAX_USER_CONNECTIONS 5;
-                GRANT SELECT ON *.* TO 'newrelic'@'localhost' WITH MAX_USER_CONNECTIONS 5;
+                GRANT REPLICATION CLIENT ON *.* TO 'newrelic'@'localhost';
+                GRANT SELECT ON *.* TO 'newrelic'@'localhost';
                 FLUSH PRIVILEGES;
 
         - name: Installing nri-mysql with apt
@@ -127,7 +127,7 @@
               - "{{ apt_nri_mysql_install.stdout_lines }}"
               - "{{ apt_nri_mysql_install.stderr_lines }}"
 
-        - name: Applying default New Relic MariaDB configuration
+        - name: Configuring New Relic database integration with default values
           ansible.builtin.copy:
             dest: /etc/newrelic-infra/integrations.d/mysql-config.yml
             group: root
@@ -136,14 +136,14 @@
             remote_src: true
             src: /etc/newrelic-infra/integrations.d/mysql-config.yml.sample
 
-        - name: Setting New Relic MariaDB password
+        - name: Specifying New Relic database password
           ansible.builtin.replace:
             path: /etc/newrelic-infra/integrations.d/mysql-config.yml
             regexp: '(\s*)#?\s*PASSWORD:.*'
             replace: "\\1# ANSIBLE MANAGED\\1PASSWORD: {{ vault.db_users.newrelic.password }}"
           no_log: true
 
-        - name: Fine-tuning New Relic MariaDB configuration
+        - name: Fine-tuning New Relic database integration
           ansible.builtin.replace:
             path: /etc/newrelic-infra/integrations.d/mysql-config.yml
             regexp: "{{ item.regexp }}"
@@ -164,7 +164,7 @@
             - regexp: '(\s*)labels:'
               replace: "\\1labels:\\1  hostname: {{ ansible_fqdn }}  # ANSIBLE MANAGED"
 
-        - name: Applying default MariaDB log forwarding config
+        - name: Applying default log forwarding for database
           ansible.builtin.copy:
             dest: /etc/newrelic-infra/logging.d/mysql-log.yml
             group: root
@@ -390,7 +390,7 @@
         name: newrelic-infra
         state: restarted
 
-    - name: Restarting MariaDB service on db-serving hosts
+    - name: Restarting database service
       when: inventory.get('mysql', {}).get('enabled')
       ansible.builtin.systemd:
         daemon_reload: true
@@ -398,18 +398,18 @@
         name: mysql
         state: restarted
 
-    - name: Restarting Tomcat and Nginx on web-serving hosts
+    - name: Restarting Tomcat and Nginx
       when: inventory.get('tomcat', {}).get('enabled')
       block:
 
-        - name: Restarting Tomcat service on web-serving hosts
+        - name: Restarting Tomcat service
           ansible.builtin.systemd:
             daemon_reload: true
             enabled: true
             name: tomcat
             state: restarted
 
-        - name: Restarting Nginx service on web-serving hosts
+        - name: Restarting Nginx service
           ansible.builtin.systemd:
             daemon_reload: true
             enabled: true
