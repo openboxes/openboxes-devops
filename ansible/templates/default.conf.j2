@@ -60,7 +60,7 @@ server {
 
     resolver 1.1.1.1 1.0.0.1 valid=300s;
     resolver_timeout 3s;
-    server_name {{ ansible_fqdn }};
+    server_name {{ ([ansible_fqdn] + inventory.get('additional_domains', [])) | join(' ') }};
 
     location /images {
         root /etc/nginx/static;

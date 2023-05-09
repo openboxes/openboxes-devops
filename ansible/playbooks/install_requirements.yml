@@ -373,7 +373,9 @@
           ansible.builtin.command:
             cmd: >
               /snap/bin/certbot -m {{ inventory.mail.sender }} -nv --agree-tos
-              --domains {{ ansible_fqdn }} --must-staple --nginx --redirect --staple-ocsp
+              --domains {{ domains }} --expand --must-staple --nginx --redirect --staple-ocsp
+          vars:
+            domains: "{{ ([ansible_fqdn] + inventory.get('additional_domains', [])) | join(',') }}"
 
         - name: Collecting Certbot output
           when: certbot.stdout_lines is defined
