@@ -34,6 +34,7 @@ all:
       vars:
         inventory: &big_webserver_inventory
           <<: *common_inventory
+          google_analytics_web_property_id: 'UA-37396941-1'
           grails:
             quartz_threads: 8
             send_mail: true
@@ -59,14 +60,18 @@ all:
             additional_domains:
               - obnav.pih-emr.org
               - openboxes.pih-emr.org
-            db_url: jdbc:mysql://dbprd.pih-emr.org:3306/openboxes
+            db_url: jdbc:mysql://dbprd.pih-emr.org:3306/openboxes?allowPublicKeyRetrieval=true&dumpQueriesOnException=true&includeInnodbStatusInDeadlockExceptions=false&useSSL=false
+            hotjar:
+              enabled: true
+              identifier: 3443850
+              snippetVersion: 6
         obstg:
           ansible_host: 74.50.49.133
           inventory:
             <<: *big_webserver_inventory
             additional_domains:
               - obnavstage.pih-emr.org
-            db_url: jdbc:mysql://dbstg.pih-emr.org:3306/openboxes
+            db_url: jdbc:mysql://dbstg.pih-emr.org:3306/openboxes?allowPublicKeyRetrieval=true&dumpQueriesOnException=true&includeInnodbStatusInDeadlockExceptions=false&useSSL=false
 
     big_dbservers:
       vars:
@@ -121,7 +126,7 @@ all:
       vars:
         inventory: &little_instance_inventory
           <<: *common_inventory
-          db_url: jdbc:mysql://localhost:3306/openboxes
+          db_url: jdbc:mysql://localhost:3306/openboxes?allowPublicKeyRetrieval=true&dumpQueriesOnException=true&includeInnodbStatusInDeadlockExceptions=false&useSSL=false
           grails:
             quartz_threads: 4
             send_mail: false
@@ -181,7 +186,6 @@ all:
           inventory:
             <<: *little_instance_inventory
             db_type: mysql
-            db_url: jdbc:mysql://localhost:3306/openboxes?allowPublicKeyRetrieval=true&useSSL=false
             tomcat:
               <<: *little_tomcat
               jdk: zulu7
