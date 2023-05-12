@@ -100,6 +100,7 @@
         pkg:
           - libaio1
           - libtcnative-1
+          - mailutils
           - "{{ inventory.db_type }}-client"
           - "{{ inventory.db_type }}-server"
           - nginx
