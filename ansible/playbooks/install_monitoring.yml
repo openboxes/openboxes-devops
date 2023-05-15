@@ -28,6 +28,11 @@
         purge: true
         state: absent
 
+    - name: Removing New Relic Agent config file
+      ansible.builtin.file:
+        path: cat /etc/newrelic-infra.yml
+        state: absent
+
     - name: Collecting apt uninstall output
       when: apt_uninstall.stdout_lines is defined
       ansible.builtin.debug:

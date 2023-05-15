@@ -2,7 +2,7 @@
 {# If this comment is present, this is the template file: disregard this warning #}
 
 dataSource {
-{% if inventory.get('tomcat').get('jdk') != "zulu7" %}
+{% if inventory.get('tomcat').get('jdk') != 'zulu7' %}
     properties {
         dbProperties {
             /*
@@ -24,7 +24,9 @@ dataSource {
         }
     }
 {% endif %}
-{% if inventory.get('db_type') == 'mariadb' %}
+{% if inventory.get('tomcat').get('jdk') == 'zulu7' %}
+    dialect = org.hibernate.dialect.MySQL5InnoDBDialect
+{% elif inventory.get('db_type') == 'mariadb' %}
     dialect = org.hibernate.dialect.MariaDB103Dialect
 {% elif inventory.get('db_type') == 'mysql' %}
     dialect = org.hibernate.dialect.MySQL57Dialect
@@ -122,6 +124,9 @@ quartz.threadPool.threadCount = {{ inventory.grails.quartz_threads }}
 org.quartz.threadPool.threadPriority = 1
 quartz.threadPool.threadPriority = 1
 
+{% if vault.get('rxnorm', {}).get('api_key') %}
+rxnorm.api.key = "{{ vault.rxnorm.api_key }}"
+{% endif %}
 server.contextPath = "{{ inventory.app_context }}"
 
 /*
@@ -131,6 +136,11 @@ server.contextPath = "{{ inventory.app_context }}"
  * should consider migrating them back to the main repository. OBS-1419
  */
 hibernate.cache.use_second_level_cache = false
+
+jqueryValidationUi.onkeyup = false
+jqueryValidationUi.qtip = false
+jqueryValidationUi.qTip.jQueryUiStyle = false
+
 openboxes.cycleCount.additionalColumns = [
     'Physical lot/serial number': null,
     'Physical bin location': null,
