@@ -4,7 +4,7 @@
     logback_version: '1.2.11'
     mariadb_version: '10.11'
     tomcat7_version: '7.0.109'
-    tomcat8_version: '8.5.87'
+    tomcat8_version: '8.5.88'
 
   tasks:
 
@@ -169,6 +169,7 @@
         checksum: "sha512:{{ item.url }}.sha512"
         dest: "{{ item.dest }}"
         mode: '0400'
+        timeout: 60
         url: "{{ item.url }}"
       loop:
         - dest: "{{ tmp_download_dir.path }}/tomcat7.tgz"
