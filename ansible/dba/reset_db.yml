@@ -13,10 +13,16 @@
         msg: "you must use -l or --limit! If you really want to use all hosts, use -l 'all'"
 
     - name: Stopping Tomcat service
+      when: ansible_connection != 'local'
       ansible.builtin.systemd:
         daemon_reload: true
         name: tomcat
         state: stopped
+
+    - name: Asking user to stop Tomcat service
+      when: ansible_connection == 'local'
+      ansible.builtin.pause:
+        prompt: "Please make sure Tomcat is not running before continuing [OK]"
 
     - name: Resetting database
       when: inventory.get('mysql', {}).get('enabled')
@@ -47,13 +53,14 @@
                   | regex_replace(vault.db_users[db_username].password, '********') }}"
 
         - name: Restarting database service
+          when: ansible_connection != 'local'
           ansible.builtin.systemd:
             daemon_reload: true
             name: mysql
             state: restarted
 
     - name: Restarting Tomcat service
-      when: inventory.get('tomcat', {}).get('enabled')
+      when: inventory.get('tomcat', {}).get('enabled') and ansible_connection != 'local'
       ansible.builtin.systemd:
         daemon_reload: true
         name: tomcat
@@ -64,9 +71,11 @@
       retries: 180  # migrations can take a very long time starting from scratch
       register: https_response
       until: https_response.status == 200
+      when: ansible_connection != 'local'
       ansible.builtin.uri:
         url: "https://{{ inventory.get('remote_webserver', ansible_fqdn) }}{{ inventory.app_context }}"
         validate_certs: false
 
 - name: Re-enabling PIH user access
+  when: ansible_connection != 'local'
   ansible.builtin.import_playbook: ../playbooks/enable_pih_user_access.yml

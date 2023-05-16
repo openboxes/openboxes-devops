@@ -205,6 +205,26 @@ all:
           ansible_host: 74.50.48.53
         obagent2:
           ansible_host: 74.50.48.161
+    personal:
+      vars:
+        ansible_connection: local
+        ansible_python_interpreter: "{{ansible_playbook_python}}"
+        inventory:
+          <<: *common_inventory
+          db_url: jdbc:mysql://localhost:3306/openboxes?allowPublicKeyRetrieval=true&dumpQueriesOnException=true&includeInnodbStatusInDeadlockExceptions=false&useSSL=false
+          mysql:
+            <<: *common_mysql
+            enabled: true
+            innodb_buffer_pool_size: 268435456  # 256 MBytes
+          tomcat:
+            <<: *common_tomcat
+            enabled: true
+            maxpermsize: 512m
+            permsize: 256m
+            xms: 2048m
+            xmx: 2048m
+      hosts:
+        localhost:
     dev:
       hosts:
         obdev1:
