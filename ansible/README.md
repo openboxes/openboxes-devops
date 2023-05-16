@@ -81,6 +81,13 @@ $ ansible-playbook -e @secrets/vault_azure -i inventories/pih_azure.yml dba/arch
 $ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restore_db.yml -l stg -e 'force=true'
 ```
 
+## Example 4: Use playbooks to copy the production database to your local machine
+
+```
+$ ansible-playbook -e @secrets/vault_azure -i inventories/pih_azure.yml dba/archive_db.yml -l obnav
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restore_db.yml -l localhost -e 'force=true'
+```
+
 ## Exceptions to the rule
 
 Legacy hosts aren't configured as consistently as those in RIMU. A few things to

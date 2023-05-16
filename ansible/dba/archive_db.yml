@@ -1,5 +1,5 @@
 - name: Archiving OpenBoxes database (please allow 5-10 minutes)
-  hosts: dbservers
+  hosts: dbservers:localhost
   vars:
     archive_file: openboxes.tgz
     db_username: openboxes

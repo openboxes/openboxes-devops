@@ -15,21 +15,26 @@
         msg: "you must use -l or --limit! If you really want to use all hosts, use -l 'all'"
 
     - name: Stopping Tomcat service
+      when: ansible_connection != 'local'
       ansible.builtin.systemd:
         daemon_reload: true
         name: tomcat
         state: stopped
 
+    - name: Asking user to stop Tomcat service
+      when: ansible_connection == 'local'
+      ansible.builtin.pause:
+        prompt: "Please make sure Tomcat is not running before continuing [OK]"
+
     - name: Restoring database
       when: inventory.get('mysql', {}).get('enabled')
       block:
 
-        - name: Uploading archive to remote host (this can be slow)
+        - name: Uploading archive to host (this can be slow)
           ansible.builtin.copy:
             dest: "{{ archive_file | basename }}"
-            group: root
             mode: '0400'
-            owner: root
+            owner: "{{ lookup('env', 'USER') if ansible_connection == 'local' else 'root' }}"
             src: "{{ archive_file }}"
 
         - name: Importing database archive (this can be slow, too)
@@ -60,13 +65,14 @@
             state: absent
 
         - name: Restarting database service
+          when: ansible_connection != 'local'
           ansible.builtin.systemd:
             daemon_reload: true
             name: mysql
             state: restarted
 
     - name: Restarting Tomcat service
-      when: inventory.get('tomcat', {}).get('enabled')
+      when: inventory.get('tomcat', {}).get('enabled') and ansible_connection != 'local'
       ansible.builtin.systemd:
         daemon_reload: true
         name: tomcat
@@ -77,9 +83,11 @@
       retries: 90  # migrations can take a while
       register: https_response
       until: https_response.status == 200
+      when: ansible_connection != 'local'
       ansible.builtin.uri:
         url: "https://{{ inventory.get('remote_webserver', ansible_fqdn) }}{{ inventory.app_context }}"
         validate_certs: false
 
 - name: Re-enabling PIH user access
+  when: ansible_connection != 'local'
   ansible.builtin.import_playbook: ../playbooks/enable_pih_user_access.yml
