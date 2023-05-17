@@ -16,3 +16,5 @@
   import_playbook: install_zerotier.yml
 - name: Installing Bamboo remote agent
   import_playbook: install_bamboo_remote_agent.yml
+- name: Enabling backups
+  import_playbook: enable_backups.yml

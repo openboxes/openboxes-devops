@@ -5,7 +5,7 @@ usage()
 {
     echo >&2 "$0 - restore an OpenBoxes database from a file"
     echo >&2 ''
-    echo >&2 "Usage: $0 [-fs] [-d <db_name>] [-i <archive_file> ] [-p <mysql_path> ] [-u <db_user> ]"
+    echo >&2 "Usage: $0 [-fs] [-d <db_name>] [-i <archive_file>] [-p <mysql_path>] [-u <db_user>]"
     echo >&2 ''
     echo >&2 'Options:'
     echo >&2 '  -f Completely delete <db_name>, if it exists, before restoring -- use with care!'

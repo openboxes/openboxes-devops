@@ -5,6 +5,7 @@ all:
     ansible_user: root
     inventory: &common_inventory
       app_context: /openboxes
+      backup_target: openboxes@host-90420072.bakop.com
       db_name: openboxes
       db_type: mariadb
       mail:

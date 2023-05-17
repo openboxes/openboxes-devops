@@ -88,6 +88,19 @@ $ ansible-playbook -e @secrets/vault_azure -i inventories/pih_azure.yml dba/arch
 $ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restore_db.yml -l localhost -e 'force=true'
 ```
 
+## Example 5: Use sftp, cp, and playbooks to restore a backup of the production database
+
+```
+$ sftp openboxes@host-90420072.bakop.com
+# backups are timestamped, you can find them via ls and pull them down via get
+> ls /home/openboxes/dbprd.pih-emr.org
+...
+> get /home/openboxes/dbprd.pih-emr.org/2023-05-18T16-33-47Z/openboxes.tgz
+# copy the backup to where the restore playbook expects it
+$ cp openboxes.tgz build/archive_db/dbprd/
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restore_db.yml -l prd -e 'force=true'
+```
+
 ## Exceptions to the rule
 
 Legacy hosts aren't configured as consistently as those in RIMU. A few things to

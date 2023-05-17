@@ -1,0 +1,117 @@
+- name: Enabling database backups
+  hosts: dbservers:&prd
+  tasks:
+
+    - name: Adding archivist user
+      ansible.builtin.user:
+        create_home: true
+        group: "{{ item.group }}"
+        groups: "{{ item.groups }}"
+        name: "{{ item.name }}"
+        password: '!'
+        system: "{{ item.system | bool }}"
+        uid: "{{ item.uid }}"
+      loop:
+        - group: staff
+          groups: mysql
+          name: archivist
+          system: false
+          uid: 1511
+
+    - name: Ensuring .ssh directory exists
+      register: ssh_directory
+      ansible.builtin.file:
+        dest: /home/archivist/.ssh
+        mode: '0700'
+        owner: archivist
+        state: directory
+
+    - name: Installing private ssh key
+      ansible.builtin.copy:
+        dest: "{{ ssh_directory.path }}/archivist_ed25519"
+        mode: '0600'
+        owner: archivist
+        src: ../secrets/archivist_ed25519
+
+    - name: Creating ssh config file
+      register: ssh_config
+      ansible.builtin.file:
+        group: staff
+        mode: '0400'
+        owner: archivist
+        path: "{{ ssh_directory.path }}/config"
+        state: touch
+
+    - name: Configuring ssh
+      ansible.builtin.blockinfile:
+        insertafter: EOF
+        marker: '# {mark} ANSIBLE MANAGED BLOCK'
+        path: "{{ ssh_config.dest }}"
+        block: |
+          Host *
+            AddKeysToAgent yes
+            HashKnownHosts no
+            IdentityFile ~/.ssh/archivist_ed25519
+
+    - name: Creating known_hosts file
+      register: known_hosts
+      ansible.builtin.file:
+        group: staff
+        mode: '0600'
+        owner: archivist
+        path: "{{ ssh_directory.path }}/known_hosts"
+        state: touch
+
+    - name: Populating known_hosts with backup target
+      ansible.builtin.blockinfile:
+        insertafter: EOF
+        marker: '# {mark} ANSIBLE MANAGED BLOCK'
+        path: "{{ known_hosts.dest }}"
+        block: "{{ lookup('ansible.builtin.file', '../secrets/known_hosts') }}"
+
+    - name: Installing backup scripts
+      ansible.builtin.copy:
+        dest: "/opt/{{ item }}"
+        group: staff
+        mode: '0550'
+        owner: archivist
+        src: "../scripts/{{ item }}"
+      loop:
+        - archive_db.bash
+        - backup_db.bash
+
+    - name: Supplying credentials to cron
+      no_log: true
+      ansible.builtin.cron:
+        # syntax is weird: when `env`=true, `name` is the key and `job` the value
+        env: true
+        job: "{{ vault.db_users.openboxes.password }}"
+        name: DB_USER_PASSWORD
+        user: archivist
+
+    #
+    # At PIH, users access Openboxes from timezones ranging from
+    # Central Africa Time (UTC+02:00) to Pacific Standard Time (UTC-08:00).
+    #
+    # 03:30 UTC is outside of business hours for all timezones, and maps to:
+    # 05:30 CAT (Malawi)
+    # 23:30 EST / 22:30 EDT (Boston/Haiti)
+    # 20:30 PST / 19:30 PDT (Seattle)
+    #
+    - name: Configuring nightly backups
+      ansible.builtin.cron:
+        hour: 3
+        job: "/opt/backup_db.bash {{ inventory.backup_target }}"
+        minute: 30
+        name: "/opt/backup_db.bash {{ inventory.backup_target }}"
+        user: archivist
+
+    - name: Running backup script
+      register: backup_script
+      become: true
+      become_user: archivist
+      changed_when: '"Done" in backup_script.stdout'
+      ansible.builtin.command:
+        cmd: "/opt/backup_db.bash {{ inventory.backup_target }}"
+      environment:
+        DB_USER_PASSWORD: "{{ vault.db_users.openboxes.password }}"
