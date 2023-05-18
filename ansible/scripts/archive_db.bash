@@ -5,7 +5,7 @@ usage()
 {
     echo >&2 "$0 - archive an OpenBoxes database to a file"
     echo >&2 ''
-    echo >&2 "Usage: $0 [-sP] [-d <db_name>] [-o <archive_file> ] [-p <mysql_path> ] [-u <db_user> ]"
+    echo >&2 "Usage: $0 [-sP] [-d <db_name>] [-o <archive_file>] [-p <mysql_path>] [-u <db_user>]"
     echo >&2 ''
     echo >&2 'Options:'
     echo >&2 '  -s use sudo when accessing db server (if using auth_socket for root)'

@@ -1,8 +1,8 @@
 - name: Restoring OpenBoxes database (please allow 10-30+ minutes)
   any_errors_fatal: true
-  hosts: all:!prd
+  hosts: all
   vars:
-    archive_file: ../build/archive_db/obnav/openboxes.tgz
+    archive_file: ../build/archive_db/dbprd/openboxes.tgz
     db_username: openboxes
     force: false
     use_sudo: false

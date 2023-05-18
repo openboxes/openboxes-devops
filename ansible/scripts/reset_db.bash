@@ -5,7 +5,7 @@ usage()
 {
     echo >&2 "$0 - reset/recreate an OpenBoxes database"
     echo >&2 ''
-    echo >&2 "Usage: $0 [-s] [-c <host_name>] [-d <db_name>] [-p <mysql_path> ] [-u <db_user> ]"
+    echo >&2 "Usage: $0 [-s] [-c <host_name>] [-d <db_name>] [-p <mysql_path>] [-u <db_user>]"
     echo >&2 ''
     echo >&2 'Options:'
     echo >&2 '  -s use sudo when accessing db server (if using auth_socket for root)'
