@@ -54,24 +54,24 @@ all:
             xms: 6144m
             xmx: 6144m
       hosts:
-        obprd:
+        obnav:
           ansible_host: 74.50.49.135
           inventory:
             <<: *big_webserver_inventory
             additional_domains:
-              - obnav.pih-emr.org
+              - obprd.pih-emr.org
               - openboxes.pih-emr.org
             db_url: jdbc:mysql://dbprd.pih-emr.org:3306/openboxes?allowPublicKeyRetrieval=true&dumpQueriesOnException=true&includeInnodbStatusInDeadlockExceptions=false&useSSL=false
             hotjar:
               enabled: true
               identifier: 3443850
               snippetVersion: 6
-        obstg:
+        obnavstage:
           ansible_host: 74.50.49.133
           inventory:
             <<: *big_webserver_inventory
             additional_domains:
-              - obnavstage.pih-emr.org
+              - obstg.pih-emr.org
             db_url: jdbc:mysql://dbstg.pih-emr.org:3306/openboxes?allowPublicKeyRetrieval=true&dumpQueriesOnException=true&includeInnodbStatusInDeadlockExceptions=false&useSSL=false
 
     big_dbservers:
@@ -235,11 +235,11 @@ all:
         obdev5:
     prd:
       hosts:
-        obprd:
+        obnav:
         dbprd:
     stg:
       hosts:
-        obstg:
+        obnavstage:
         dbstg:
     dbservers:
       children:
