@@ -122,7 +122,7 @@
         - tomcat7
         - tomcat85
 
-    - name: Removing all DB access for finance user
+    - name: Removing all DB access for finance user and Kelsey
       changed_when: true
       when: inventory.get('mysql', {}).get('enabled')
       ansible.builtin.command:
@@ -132,7 +132,10 @@
           - root
           - -p{{ vault.db_users.root.password }}
           - -e
-          - delete from mysql.user where User = 'finance';
+          - "delete from mysql.user where User = '{{ item }}';"
+      loop:
+        - finance
+        - knagel
 
     - name: Enabling remote DB access for finance user
       changed_when: true
@@ -153,6 +156,28 @@
         {{ inventory.firewall.values()
          | selectattr('users', 'defined')
          | selectattr('users', 'contains', 'finance')
+         | map(attribute='ips')
+         | flatten }}
+
+    - name: Enabling remote DB access for Kelsey
+      changed_when: true
+      when: inventory.get('firewall') and inventory.get('mysql', {}).get('enabled')
+      ansible.builtin.command:
+        argv:
+          - mysql
+          - -u
+          - root
+          - -p{{ vault.db_users.root.password }}
+          - -e
+          - >-
+            DROP USER IF EXISTS 'knagel'@'{{ item }}';
+            CREATE USER 'knagel'@'{{ item }}' IDENTIFIED BY '{{ vault.db_users.knagel.password }}';
+            GRANT ALL PRIVILEGES ON `{{ inventory.db_name }}`.* TO 'knagel'@'{{ item }}';
+            FLUSH PRIVILEGES;
+      loop: >-
+        {{ inventory.firewall.values()
+         | selectattr('users', 'defined')
+         | selectattr('users', 'contains', 'knagel')
          | map(attribute='ips')
          | flatten }}
 

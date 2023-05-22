@@ -85,6 +85,16 @@ all:
         inventory: &big_dbserver_inventory
           <<: *common_inventory
           firewall:
+            jmiranda:
+              ips:
+                - 65.29.169.164
+              port: 3306
+            knagel:
+              ips:
+                - 10.160.28.102
+              port: 3306
+              users:
+                - knagel
             pih_cld_whdev:
               ips:
                 - 40.70.215.46
