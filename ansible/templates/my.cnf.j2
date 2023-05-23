@@ -1,16 +1,18 @@
 # Ansible generated this file from {{ template_path }}; do not edit locally!
 {# If this comment is present, this is the template file: disregard this warning #}
 
-[client-mariadb]
+[client]
+
 ssl
 
 [client-server]
+
 {% if inventory.get('remote_webserver') %}
 port = 3306
 {% endif %}
 tls_version = TLSv1.1,TLSv1.2,TLSv1.3
 
-[mariadb]
+[mysqld]
 
 {% if inventory.get('remote_webserver') %}
 bind-address = {{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}
