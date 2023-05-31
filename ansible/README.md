@@ -19,17 +19,24 @@ The `dba` directory contains Ansible playbooks for the following database-relate
 
 ## Configuring a host to send Ansible commands
 
-1. [Install Ansible.](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html)
-2. [Install `ansible-lint`.](https://ansible-lint.readthedocs.io) (optional, if developing playbooks)
-3. Install [New Relic's Ansible plug-in](https://docs.newrelic.com/docs/infrastructure/install-infrastructure-agent/config-management-tools/configure-infrastructure-agent-using-ansible/) (optional, if you want New Relic support) by running `ansible-galaxy install newrelic.newrelic-infra` in a terminal.
-4. Ask colleagues for appropriate SSH key pair(s) for the host(s) you need to access, and place them in `~/.ssh/`
-5. The repository itself contains obscured secrets (mostly API keys). Ask a colleague for the secret UUID and put it in `$WORKSPACE/ansible/secrets/key`.
+1. [Install Ansible.](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html).
+2. [Install `ansible-lint`.](https://ansible-lint.readthedocs.io)
+   (optional, if developing playbooks).
+3. Install [New Relic's Ansible plug-in](https://docs.newrelic.com/docs/infrastructure/install-infrastructure-agent/config-management-tools/configure-infrastructure-agent-using-ansible/)
+   (optional, if you want New Relic support) by running
+   `ansible-galaxy install newrelic.newrelic-infra` in a terminal.
+4. Ask colleagues for appropriate SSH key pair(s) for the host(s) you need to
+   access, and place them in `~/.ssh/`.
+5. The repository itself contains obscured secrets (mostly API keys). Ask a
+   colleague for the secret UUID and put it in `$WORKSPACE/ansible/secrets/key`.
 
 ## Configuring a target to receive Ansible commands
 
 1. Place the public key from step #4, above, in `/root/.ssh/authorized_keys`.
-2. Edit `/etc/ssh/sshd_config` to permit root access over SSH, if it isn't already. On Azure systems, you may need to edit the `AllowUsers` and `PermitRootLogin` settings.
-3. If `ssh root@your.host` doesn't work, neither will Ansible. You can debug the connection using the `-v` flag.
+2. Edit `/etc/ssh/sshd_config` to permit root access over SSH, if it isn't already.
+   On Azure systems, you may need to edit the `AllowUsers` and `PermitRootLogin` settings.
+3. If `ssh root@your.host` doesn't work, neither will Ansible. You can debug the
+   connection using the `-v` flag.
 
 ## Example 1: Use playbooks to bring up a dev host
 
@@ -100,6 +107,33 @@ $ sftp openboxes@host-90420072.bakop.com
 $ cp openboxes.tgz build/archive_db/dbprd/
 $ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restore_db.yml -l prd -e 'force=true'
 ```
+
+## Example 6: Completely tear down and re-create a host (involved)
+
+The following instructions assume you're using RIMU. Other hosting providers will
+have different ways of destroying a VM.
+
+1. Find the host in [RIMU's control panel](https://rimuhosting.com/cp/serverlist.jsp?user_oid=73127431).
+2. Click Install/reinstall.
+3. Select “Ubuntu 22.04 64-bit (Jammy Jellyfish), 5 yr long term support (LTS)”.
+4. Type something informative in the “Reason for install” box.
+5. Press the “Shutdown and Reinstall” button at the bottom.
+
+When the host comes back up it will have different `ssh` keys! This means Ansible
+won't want to connect to it, and neither will our Bamboo agents.
+
+1. Use `ssh` to connect to the host. You should get a warning about a man-in-the-middle
+   attack. You'll need to remove the stale entry from your `known_hosts` file.
+2. Once you can `ssh` to the newly-provisioned host, look at the new `known_hosts` entry.
+3. Copy the entry you found in 2 to `secrets/known_hosts` in this repository.
+4. Run the following command to allow bamboo workers to deploy to the host again:
+   ```
+   ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/install_bamboo_remote_agent.yml`
+   ```
+5. Now you can reinstall all the required dependencies with Ansible:
+   ```
+   ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/pih_main.yml -l $HOST`
+   ```
 
 ## Exceptions to the rule
 
@@ -177,4 +211,4 @@ Almost everything winds up somewhere in `/var/log`, as it should.
 - Tomcat 8.5 `/var/log/tomcat85/*`
 
 Exceptions:
-- Grails still may dump some stack traces to Tomcat's working directory `/var/lib/tomcat*/stacktrace.log`
+- Grails still may dump some stack traces to Tomcat's working directory, `/var/lib/tomcat*/stacktrace.log`.
