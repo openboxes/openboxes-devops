@@ -1,5 +1,5 @@
 - name: Configuring swap space
-  hosts: bamboo_remote_agents
+  hosts: bamboo_remote_agents:big_webservers
   tasks:
 
     - name: Declaring swap_file mount point

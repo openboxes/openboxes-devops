@@ -119,6 +119,7 @@ echo "Inserting schema into database \`$db_name\` ..."
 original_db_name=$(basename ./*-schema.sql -schema.sql)
 cat "${original_db_name}-schema.sql" \
     | sed "/SQL SECURITY DEFINER/! s/\`$original_db_name\`/\`$db_name\`/g" \
+    | sed '/SQL SECURITY DEFINER/ s/@`[^`]*`/@`localhost`/g' \
     | sed 's/utf8mb4_0900_ai_ci/utf8mb4_general_ci/g' \
     | $local_sudo mysql -u root -p"$DB_ROOT_PASSWORD" "$db_name"
 

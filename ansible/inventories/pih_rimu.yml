@@ -42,7 +42,8 @@ all:
           mysql:
             <<: *common_mysql
             enabled: false
-          tomcat:
+          swap_size: 32GiB  # argument to fallocate -l
+          tomcat: &big_tomcat
             <<: *common_tomcat
             enabled: true
             gc_threads: 5
@@ -66,6 +67,11 @@ all:
               enabled: true
               identifier: 3443850
               snippetVersion: 6
+            tomcat:
+              <<: *big_tomcat
+              maxpermsize: 2048m
+              xms: 12288m
+              xmx: 12288m
         obnavstage:
           ansible_host: 74.50.49.133
           inventory:
@@ -79,6 +85,16 @@ all:
         inventory: &big_dbserver_inventory
           <<: *common_inventory
           firewall:
+            jmiranda:
+              ips:
+                - 65.29.169.164
+              port: 3306
+            knagel:
+              ips:
+                - 10.160.28.102
+              port: 3306
+              users:
+                - knagel
             pih_cld_whdev:
               ips:
                 - 40.70.215.46
