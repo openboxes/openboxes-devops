@@ -98,7 +98,12 @@
           register: find_results
           ansible.builtin.find:
             depth: 1
+            file_type: directory
             paths: "{{ deployment_targets }}"
+            recurse: true
+            patterns:
+              - META-INF
+              - WEB-INF
 
         - name: Starting dummy deploy with Tomcat manager
           when: find_results.matched == 0
