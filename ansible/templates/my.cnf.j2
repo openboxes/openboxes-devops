@@ -1,18 +1,21 @@
 # Ansible generated this file from {{ template_path }}; do not edit locally!
 {# If this comment is present, this is the template file: disregard this warning #}
 
-[client]
-
+[client-mariadb]
 ssl
 
 [client-server]
-
+{% if inventory.get('remote_webserver') %}
 port = 3306
+{% endif %}
 tls_version = TLSv1.1,TLSv1.2,TLSv1.3
 
-[mysqld]
+[mariadb]
 
-bind-address = '::'
+{% if inventory.get('remote_webserver') %}
+bind-address = {{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}
+{% endif %}
+
 disconnect_on_expired_password = 1
 general_log = 0
 general_log_file = /var/log/mysql/general.log
@@ -30,7 +33,6 @@ join_buffer_size = 1048576  # 1 MByte, mysqltuner recommendation
 
 log_ddl_recovery = /var/log/mysql/ddl_recovery.log
 log_error = /var/log/mysql/error.log
-log_warnings = 2
 
 {% if inventory.get('mysql', {}).get('long_query_time') %}
 long_query_time = {{ inventory.mysql.long_query_time }}
