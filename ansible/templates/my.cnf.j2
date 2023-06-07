@@ -2,13 +2,29 @@
 {# If this comment is present, this is the template file: disregard this warning #}
 
 [client-mariadb]
+
 ssl
 
 [client-server]
+
 port = 3306
 tls_version = TLSv1.1,TLSv1.2,TLSv1.3
 
 [mariadb]
+
+log_ddl_recovery = /var/log/mysql/ddl_recovery.log
+log_warnings = 2
+
+{% if inventory.get('mysql', {}).get('query_cache_size') %}
+query_cache_limit = {{ inventory.mysql.query_cache_size // 4 }}
+query_cache_size = {{ inventory.mysql.query_cache_size }}
+query_cache_strip_comments = 1
+query_cache_type = 2
+{% endif %}
+
+secure_auth = 1
+
+[mysqld]
 
 bind_address = '*'
 
@@ -27,20 +43,11 @@ innodb_use_native_aio = {{ inventory.mysql.innodb_use_native_aio }}
 
 join_buffer_size = 1048576  # 1 MByte, mysqltuner recommendation
 
-log_ddl_recovery = /var/log/mysql/ddl_recovery.log
 log_error = /var/log/mysql/error.log
 
 {% if inventory.get('mysql', {}).get('long_query_time') %}
 long_query_time = {{ inventory.mysql.long_query_time }}
 {% endif %}
-
-{% if inventory.get('mysql', {}).get('query_cache_size') %}
-query_cache_limit = {{ inventory.mysql.query_cache_size // 4 }}
-query_cache_size = {{ inventory.mysql.query_cache_size }}
-query_cache_type = 2
-{% endif %}
-
-query_cache_strip_comments = 1
 
 performance_schema = {{ 1 if ('dev' in group_names or 'stg' in group_names) else 0 }}
 
@@ -52,14 +59,12 @@ read_rnd_buffer_size = 1048576  # 1 MByte, mysqltuner recommendation
 #
 require_secure_transport = 0
 
-secure_auth = 1
-
 {% if inventory.get('mysql', {}).get('slow_query_log') %}
 slow_query_log = {{ inventory.mysql.slow_query_log }}
 slow_query_log_file = /var/log/mysql/slow.log
 {% endif %}
 
-sql_mode = ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,STRICT_TRANS_TABLES
+sql_mode = ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,NO_ZERO_DATE,NO_ZERO_IN_DATE,STRICT_TRANS_TABLES
 
 sort_buffer_size = 8388608  # 8 MBytes, mysqltuner recommendation
 
