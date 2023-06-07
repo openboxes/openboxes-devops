@@ -5,16 +5,12 @@
 ssl
 
 [client-server]
-{% if inventory.get('remote_webserver') %}
 port = 3306
-{% endif %}
 tls_version = TLSv1.1,TLSv1.2,TLSv1.3
 
 [mariadb]
 
-{% if inventory.get('remote_webserver') %}
-bind-address = {{ ansible_default_ipv4.address | default(ansible_all_ipv4_addresses[0]) }}
-{% endif %}
+bind_address = '*'
 
 disconnect_on_expired_password = 1
 general_log = 0
