@@ -1,3 +1,4 @@
 inventories/pih_rimu.yml yaml[line-length]
-playbooks/enable_pih_user_access.yml yaml[line-length]
-playbooks/install_monitoring.yml var-naming[no-role-prefix]
+playbooks/main.yml name[play]
+playbooks/monitoring.yml var-naming[no-role-prefix]
+playbooks/users.yml yaml[line-length]

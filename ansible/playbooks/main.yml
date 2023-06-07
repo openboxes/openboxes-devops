@@ -1,0 +1,13 @@
+- import_playbook: apt.yml
+- import_playbook: swap.yml
+- import_playbook: database.yml
+- import_playbook: webserver.yml
+- import_playbook: reverseproxy.yml
+- import_playbook: users.yml
+- import_playbook: security.yml
+- import_playbook: deployment.yml
+- import_playbook: monitoring.yml
+- import_playbook: vpn.yml
+- import_playbook: buildagent.yml
+- import_playbook: backup.yml
+- import_playbook: configure.yml

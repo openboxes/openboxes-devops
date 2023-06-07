@@ -88,6 +88,6 @@
         url: "https://{{ inventory.get('remote_webserver', ansible_fqdn) }}{{ inventory.app_context }}"
         validate_certs: false
 
-- name: Re-enabling PIH user access
+- name: Re-enabling user access
   when: ansible_connection != 'local'
-  ansible.builtin.import_playbook: ../playbooks/enable_pih_user_access.yml
+  ansible.builtin.import_playbook: ../playbooks/users.yml

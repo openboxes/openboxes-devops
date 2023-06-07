@@ -1,0 +1,165 @@
+# Requires `ansible-galaxy collection install ansible.posix`
+
+- name: Enabling user accounts
+  hosts: all
+  tasks:
+
+    - name: Configuring Linux users
+      when: inventory.get('users')
+      block:
+
+        - name: Adding users to /etc/passwd
+          ansible.builtin.user:
+            create_home: true
+            group: "{{ item.value.get('group', 'staff') }}"
+            groups: "{{ item.value.get('groups', ['tomcat']) }}"
+            name: "{{ item.key }}"
+            password: '!'
+            shell: /bin/bash
+            system: "{{ item.value.get('system', False) | bool }}"
+            uid: "{{ item.value.uid }}"
+          loop: >-
+            {{ inventory.users | dict2items }}
+
+        - name: Adding public keys
+          when: 'lookup("ansible.builtin.fileglob", item.value.key_file) != []'
+          ansible.posix.authorized_key:
+            key: "{{ lookup('ansible.builtin.file', item.value.key_file) }}"
+            state: present
+            user: "{{ item.key }}"
+          loop: >-
+            {{ inventory.users
+             | dict2items
+             | selectattr('value.key_file', 'defined') }}
+
+        - name: Enabling sudo access for admin users on all hosts
+          ansible.builtin.lineinfile:
+            dest: /etc/sudoers
+            line: "{{ item.key }} ALL=(ALL) NOPASSWD:ALL"
+            regexp: "^{{ item.key }}"
+            validate: visudo -cf %s
+          loop: >-
+            {{ inventory.users
+             | dict2items
+             | selectattr('value.sudo_all', 'true') }}
+
+        - name: Enabling sudo access for developers on dev hosts
+          when: "'prd' not in group_names"
+          ansible.builtin.lineinfile:
+            dest: /etc/sudoers
+            line: "{{ item.key }} ALL=(ALL) NOPASSWD:ALL"
+            regexp: "^{{ item.key }}"
+            validate: visudo -cf %s
+          loop: >-
+            {{ inventory.users
+             | dict2items
+             | selectattr('value.sudo_dev', 'true') }}
+
+        - name: Enabling limited sudo access for selected users on all hosts
+          ansible.builtin.lineinfile:
+            dest: /etc/sudoers
+            line: "{{ item.key }} ALL=(ALL) NOPASSWD:{{ item.value.sudo_executables | join(',') }}"
+            regexp: "^{{ item.key }}"
+            validate: visudo -cf %s
+          loop: >-
+            {{ inventory.users
+             | dict2items
+             | selectattr('value.sudo_executables', 'defined') }}
+
+    - name: Configuring database users
+      when: inventory.get('firewall') and inventory.get('mysql', {}).get('enabled')
+      block:
+
+        - name: Removing all DB access for users listed in firewall config
+          changed_when: true
+          when: inventory.get('firewall') and inventory.get('mysql', {}).get('enabled')
+          ansible.builtin.command:
+            argv:
+              - mysql
+              - -u
+              - root
+              - -p{{ vault.db_users.root.password }}
+              - -e
+              - "delete from mysql.user where User = '{{ item }}';"
+          loop: >-
+            {{ inventory.firewall.values()
+             | selectattr('mysql_user', 'defined')
+             | map(attribute='mysql_user')
+             | list
+             | unique }}
+
+        - name: Enabling DB access for users listed in firewall config
+          changed_when: true
+          when: inventory.get('firewall') and inventory.get('mysql', {}).get('enabled')
+          ansible.builtin.command:
+            argv:
+              - mysql
+              - -u
+              - root
+              - -p{{ vault.db_users.root.password }}
+              - -e
+              - >-
+                DROP USER IF EXISTS '{{ item[0].mysql_user }}'@'{{ item[1] }}';
+                CREATE USER '{{ item[0].mysql_user }}'@'{{ item[1] }}' IDENTIFIED BY '{{ vault.db_users[item[0].mysql_user].password }}';
+                GRANT ALL PRIVILEGES ON `{{ inventory.db_name }}`.* TO '{{ item[0].mysql_user }}'@'{{ item[1] }}';
+                GRANT process ON *.* TO '{{ item[0].mysql_user }}'@'{{ item[1] }}';
+                FLUSH PRIVILEGES;
+          loop: >-
+            {{ inventory.firewall.values()
+             | selectattr('mysql_user', 'defined')
+             | subelements('ips') }}
+
+        - name: Creating database user for New Relic
+          when: vault.new_relic is defined
+          changed_when: true
+          no_log: true
+          ansible.builtin.command:
+            argv:
+              - mysql
+              - -u
+              - root
+              - -p{{ vault.db_users.root.password }}
+              - -e
+              - >-
+                CREATE USER IF NOT EXISTS 'newrelic'@'localhost' IDENTIFIED BY '{{ vault.db_users.newrelic.password }}' WITH MAX_USER_CONNECTIONS 5;
+                GRANT REPLICATION CLIENT ON *.* TO 'newrelic'@'localhost';
+                GRANT SELECT ON *.* TO 'newrelic'@'localhost';
+                FLUSH PRIVILEGES;
+
+        - name: Requiring SSL for users whose clients all support it
+          changed_when: true
+          when: inventory.get('firewall') and inventory.get('mysql', {}).get('enabled')
+          ansible.builtin.command:
+            argv:
+              - mysql
+              - -u
+              - root
+              - -p{{ vault.db_users.root.password }}
+              - -e
+              - "ALTER USER '{{ item[0].mysql_user }}'@'{{ item[1] }}' REQUIRE SSL; FLUSH PRIVILEGES;"
+          loop: >-
+            {{ inventory.firewall.values()
+             | selectattr('mysql_user', 'defined')
+             | selectattr('require_mysql_ssl', 'true')
+             | subelements('ips') }}
+
+    #
+    # The following task ignores Tomcat best practices, but Bamboo and other services need it to work.
+    #
+    # > It is recommended to never grant the manager-script or
+    # > manager-jmx roles to users that have the manager-gui role.
+    #
+    # https://tomcat.apache.org/tomcat-8.5-doc/manager-howto.html#Configuring_Manager_Application_Access
+    #
+    - name: Configuring Tomcat users
+      no_log: true
+      ansible.builtin.lineinfile:
+        insertbefore: '^</tomcat-users>'
+        # cf. https://confluence.atlassian.com/bamboo/using-tomcat-with-bamboo-for-continuous-deployment-305759758.html
+        line: "  <user username=\"{{ item[0].key }}\" password=\"{{ item[0].value.password }}\" roles=\"{{ item[0].value.roles | join(',') }}\" /> <!-- ANSIBLE MANAGED -->"
+        path: "/var/lib/{{ item[1] }}/conf/tomcat-users.xml"
+        regexp: "username=\"{{ item[0].key }}\""
+      loop: >-
+        {{ vault.get('tomcat_users', {})
+         | dict2items
+         | product(['tomcat7', 'tomcat85']) }}

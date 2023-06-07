@@ -95,26 +95,13 @@
           - infrastructure
           - logs
 
-    # https://docs.newrelic.com/install/mysql/?dropdown1=linux
+    #
+    # These steps are from https://docs.newrelic.com/install/mysql/?dropdown1=linux
+    # N.B. New Relic requires a `newrelic` database user, which is defined in user.yml
+    #
     - name: Installing New Relic database integration
       when: inventory.get('mysql', {}).get('enabled')
       block:
-
-        - name: Creating database user for New Relic
-          changed_when: true
-          no_log: true
-          ansible.builtin.command:
-            argv:
-              - mysql
-              - -u
-              - root
-              - -p{{ vault.db_users.root.password }}
-              - -e
-              - >-
-                CREATE USER IF NOT EXISTS 'newrelic'@'localhost' IDENTIFIED BY '{{ vault.db_users.newrelic.password }}' WITH MAX_USER_CONNECTIONS 5;
-                GRANT REPLICATION CLIENT ON *.* TO 'newrelic'@'localhost';
-                GRANT SELECT ON *.* TO 'newrelic'@'localhost';
-                FLUSH PRIVILEGES;
 
         - name: Installing nri-mysql with apt
           register: apt_nri_mysql_install
@@ -294,49 +281,6 @@
             - path: /var/lib/tomcat85/newrelic/newrelic.yml
               regexp: '^  log_file_name: newrelic_agent.log'
               replace: '  # ANSIBLE MANAGED\n  log_file_name: STDOUT'
-#             - path: /var/lib/tomcat7/newrelic/newrelic.yml
-#               regexp: '^  enable_auto_app_naming: .*$'
-#               replace: "  # ANSIBLE MANAGED\n  enable_auto_app_naming: false"
-#             - path: /var/lib/tomcat85/newrelic/newrelic.yml
-#               regexp: '^  enable_auto_app_naming: .*$'
-#               replace: "  # ANSIBLE MANAGED\n  enable_auto_app_naming: false"
-
-        - name: Adding New Relic flags to Tomcat's setenv.sh
-          ansible.builtin.lineinfile:
-            insertafter: EOF
-            line: "{{ item.line }}"
-            path: "{{ item.path }}"
-          loop:
-            - line: "export CATALINA_OPTS=\"$CATALINA_OPTS -javaagent:/var/lib/tomcat7/newrelic/newrelic.jar\"  # ANSIBLE MANAGED"
-              path: /var/lib/tomcat7/bin/setenv.sh
-            - line: "export CATALINA_OPTS=\"$CATALINA_OPTS -javaagent:/var/lib/tomcat85/newrelic/newrelic.jar\"  # ANSIBLE MANAGED"
-              path: /var/lib/tomcat85/bin/setenv.sh
-            - line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.application_logging.forwarding.context_data.enabled=true"  # ANSIBLE MANAGED'
-              path: /var/lib/tomcat7/bin/setenv.sh
-            - line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.application_logging.forwarding.context_data.enabled=true"  # ANSIBLE MANAGED'
-              path: /var/lib/tomcat85/bin/setenv.sh
-
-        - name: Adding Java 7-specific New Relic flags
-          when: inventory.get('tomcat', {}).get('jdk') == 'zulu7'
-          ansible.builtin.lineinfile:
-            insertafter: EOF
-            # https://docs.newrelic.com/docs/distributed-tracing/concepts/how-new-relic-distributed-tracing-works/
-            line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.distributed_tracing.enabled=true"  # ANSIBLE MANAGED'
-            path: "/var/lib/{{ item }}/bin/setenv.sh"
-          loop:
-            - tomcat7
-            - tomcat85
-
-        - name: Adding Java 8+-specific New Relic flags
-          when: inventory.get('tomcat', {}).get('jdk') == 'zulu8'
-          ansible.builtin.lineinfile:
-            insertafter: EOF
-            # https://docs.newrelic.com/docs/apm/agents/java-agent/features/real-time-profiling-java-using-jfr-metrics/
-            line: 'export CATALINA_OPTS="$CATALINA_OPTS -XX:StartFlightRecording -Dnewrelic.config.jfr.enabled=true"  # ANSIBLE MANAGED'
-            path: "/var/lib/{{ item }}/bin/setenv.sh"
-          loop:
-            - tomcat7
-            - tomcat85
 
     - name: Configuring New Relic infrastructure agent
       ansible.builtin.blockinfile:
@@ -361,62 +305,9 @@
         regexp: 'PIDFile=/var/run/newrelic-infra/newrelic-infra.pid'
         replace: 'PIDFile=/run/newrelic-infra/newrelic-infra.pid  # ANSIBLE MANAGED'
 
-    - name: Configuring Sentry
-      when: ansible_hostname in vault.get('sentry_dsn', {})
-      block:
-
-        - name: Adding Sentry flags to Tomcat's setenv.sh
-          ansible.builtin.lineinfile:
-            insertafter: EOF
-            line: "export SENTRY_DSN={{ vault.sentry_dsn[ansible_hostname] }}  # ANSIBLE MANAGED"
-            path: "{{ item }}"
-          no_log: true
-          loop:
-            - /var/lib/tomcat7/bin/setenv.sh
-            - /var/lib/tomcat85/bin/setenv.sh
-
-        - name: Activating Grails' Sentry plugin
-          ansible.builtin.lineinfile:
-            insertafter: EOF
-            line: 'grails.plugins.raven.active = true'
-            path: /home/tomcat/.grails/openboxes-config.groovy
-            regexp: 'grails.plugins.raven.active = false'
-
-        - name: Configuring Grails' Sentry plugin
-          ansible.builtin.lineinfile:
-            insertafter: 'grails.plugins.raven.active'
-            line: "grails.plugins.raven.dsn = \"{{ vault.sentry_dsn[inventory_hostname] }}\""
-            path: /home/tomcat/.grails/openboxes-config.groovy
-
     - name: Restarting New Relic service
       ansible.builtin.systemd:
         daemon_reload: true
         enabled: true
         name: newrelic-infra
         state: restarted
-
-    - name: Restarting database service
-      when: inventory.get('mysql', {}).get('enabled')
-      ansible.builtin.systemd:
-        daemon_reload: true
-        enabled: true
-        name: mysql
-        state: restarted
-
-    - name: Restarting Tomcat and Nginx
-      when: inventory.get('tomcat', {}).get('enabled')
-      block:
-
-        - name: Restarting Tomcat service
-          ansible.builtin.systemd:
-            daemon_reload: true
-            enabled: true
-            name: tomcat
-            state: restarted
-
-        - name: Restarting Nginx service
-          ansible.builtin.systemd:
-            daemon_reload: true
-            enabled: true
-            name: nginx
-            state: restarted
