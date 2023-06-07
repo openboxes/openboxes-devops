@@ -104,14 +104,14 @@
           when: find_results.matched == 0
           block:
 
-            - name: Waiting for Tomcat manager to start up
+            - name: Waiting until Tomcat manager is up
               register: tomcat_manager
               ansible.builtin.uri:
                 password: "{{ vault.tomcat_users.bamboo.password }}"
                 url: http://localhost:8080/manager/text
                 user: bamboo
               delay: 10
-              retries: 24
+              retries: 6
               until: tomcat_manager.status == 200
 
             - name: Starting a dummy deploy so Bamboo has something to replace
