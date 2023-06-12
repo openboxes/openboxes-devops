@@ -71,6 +71,8 @@ $ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/archiv
 # Upload that database data to the new machine
 $ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restore_db.yml -l $HOST
 
+# Note the playbook's warning that it cannot verify the restore because Openboxes is not installed
+
 # Now you can deploy Openboxes itself via Tomcat manager, or Bamboo (if so configured)
 ```
 
