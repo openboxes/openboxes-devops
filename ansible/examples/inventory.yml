@@ -1,0 +1,81 @@
+all:
+  vars:
+    ansible_port: 22
+    ansible_ssh_private_key_file: ~/.ssh/ansible_ed25519
+    ansible_user: root
+    inventory:
+      app_context: /openboxes
+      backup_target: your_account@host-12345678.bakop.com
+      db_name: openboxes
+      db_type: mariadb
+      db_url: jdbc:mysql://localhost:3306/openboxes?allowPublicKeyRetrieval=true&dumpQueriesOnException=true&includeInnodbStatusInDeadlockExceptions=false&useSSL=false
+      firewall:
+        ann_administrator:
+          ips:
+            - 1.2.3.4
+          mysql_user: boss
+          port: 3306
+        joe_developer:
+          ips:
+            - 1.2.3.5
+            - 1.2.3.6
+          mysql_user: dev
+          port: 3306
+        openboxes:
+          ips:
+            - localhost
+          port: 3306
+      grails:
+        quartz_threads: 6
+        send_mail: true
+      mail:
+        developers:
+          - joe_developer@pih.org
+        host: smtp.somewhere.com
+        port: 587
+        recipients:
+          - support@your_domain.com
+        sender: openboxes@your_domain.com
+        username: smtp_user
+      mysql:
+        # settings in the `mysql` block will affect MariaDB and MySQL 8.0
+        enabled: true
+        innodb_buffer_pool_size: 8589934592  # 8 GBytes
+        innodb_use_native_aio: 1
+        long_query_time: 1
+        query_cache_size: 67108864  # 64 MBytes
+        slow_query_log: 1
+      swap_size: 32GiB  # argument to fallocate -l
+      tomcat:
+        enabled: true
+        gc_threads: 5
+        gpars_poolsize: 8
+        jdk: zulu7
+        maxpermsize: 1024m
+        name: tomcat7
+        newsize: 256m
+        permsize: 512m
+        xms: 6144m
+        xmx: 6144m
+      users:
+        ann_administrator:
+          key_file: ../public_keys/ann_administrator_ed25519.pub
+          sudo_all: true
+          uid: 1234
+        joe_developer:
+          key_file: ../public_keys/joe_developer_ed25519.pub
+          sudo_dev: true
+          uid: 1235
+        # if you use CI, you'll need to include credentials here
+        bamboo:
+          key_file: ../public_keys/bamboo_ed25519.pub
+          sudo_executables:
+            - /sbin/service
+            - /usr/sbin/service
+          uid: 1236
+
+  children:
+    prd:
+      hosts:
+        your_hostname:
+          ansible_host: 1.2.3.7

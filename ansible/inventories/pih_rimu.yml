@@ -27,10 +27,7 @@ all:
             - 194.181.116.130
           port: 3306
       mail:
-        admins:
-          - justin@openboxes.com
-          - mpearson@pih.org
-        bcc:
+        developers:
           - justin@openboxes.com
           - mpearson@pih.org
         host: smtp.sendgrid.net

@@ -1,3 +1,4 @@
+examples/inventory.yml yaml[line-length]
 inventories/pih_rimu.yml yaml[line-length]
 playbooks/main.yml name[play]
 playbooks/monitoring.yml var-naming[no-role-prefix]

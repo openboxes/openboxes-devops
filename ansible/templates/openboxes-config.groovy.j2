@@ -55,7 +55,7 @@ grails.app.context = "{{ inventory.app_context }}"
 
 // MailService.groovy
 {% if inventory.get('grails', {}).get('send_mail') and inventory.get('mail') %}
-grails.mail.bcc = "{{ inventory.mail.bcc | join(',') }}"
+grails.mail.bcc = "{{ inventory.mail.developers | join(',') }}"
 grails.mail.enabled = {{ inventory.grails.send_mail | string | lower }}
 grails.mail.from = "{{ inventory.mail.sender }}"
 grails.mail.host = "{{ inventory.mail.host }}"

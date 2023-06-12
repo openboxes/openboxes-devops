@@ -1,0 +1,37 @@
+vault:
+  # username and password to CI server
+  bamboo:
+    username: bamboo
+    password: ********
+  db_users:
+    newrelic:
+      password: ********
+    openboxes:
+      password: ********
+    root:
+      password: ********
+  google_api_key: ********
+  hipaaspace_api_key: ********
+  mail:
+    password: ********
+  new_relic:
+    account_id: ********
+    api_key: ********
+    user_key: ********
+  rxnorm:
+    api_key: ********
+  #
+  # Grails 1 requires "Deprecated DSN", available via "Show deprecated DSN" at this URL:
+  # https://sentry.io/settings/openboxes/projects/<inventory_hostname>/keys/
+  #
+  sentry_dsn:
+    your_hostname1: https://********:********@sentry.io/********
+    your_hostname2: https://********:********@sentry.io/********
+  tomcat_users:
+    bamboo:
+      password: ********
+      roles:
+        - manager-gui
+        - manager-script
+  zerotier_vpns:
+    - ********
