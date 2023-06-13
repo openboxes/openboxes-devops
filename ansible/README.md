@@ -63,13 +63,13 @@ database-related tasks:
 
 ```
 # Install everything we need
-$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/main.yml -l $HOST
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/main.yml -l $TARGET
 
 # Extract database data from the production instance
 $ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/archive_db.yml -l prd
 
 # Upload that database data to the new machine
-$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restore_db.yml -l $HOST
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restore_db.yml -l $TARGET
 
 # Note the playbook's warning that it cannot verify the restore because Openboxes is not installed
 
@@ -79,16 +79,16 @@ $ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restor
 ## Example 2: Use playbooks to restore a host to “factory settings”
 
 ```
-$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/main.yml -l $HOST
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/main.yml -l $TARGET
 
 # Create a new, empty database (use with care!!)
-$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/reset_db.yml -l $HOST
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/reset_db.yml -l $TARGET
 ```
 
 ## Example 3: Use playbooks to quickly refresh (nearly) all configuration on a host
 
 ```
-$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/configure.yml -l $HOST
+$ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/configure.yml -l $TARGET
 ```
 
 ## Example 4: Use playbooks to copy the production database to the staging instance
@@ -145,8 +145,8 @@ will offer different ways of destroying a VM.
 4. Type something informative in the “Reason for install” box.
 5. Press the “Shutdown and Reinstall” button at the bottom.
 
-When the host comes back up it will have different `ssh` keys! This means Ansible
-won’t want to connect to it, and neither will our Bamboo agents.
+When the host comes back up it will have different `ssh` keys! This means
+Ansible won’t want to connect to it, and neither will our Bamboo agents.
 
 1. Use `ssh` to connect to the host. You should get a warning about a
    man-in-the-middle attack. You’ll need to remove the stale entry from your
@@ -154,7 +154,8 @@ won’t want to connect to it, and neither will our Bamboo agents.
 2. Once you can `ssh` to the newly-provisioned host, look at the new
    `known_hosts` entry.
 3. Copy the entry you found in 2 to `secrets/known_hosts` in this repository.
-4. Run the following command to allow bamboo workers to deploy to the host again:
+4. Run the following command to allow bamboo workers to deploy to the host
+   again:
    ```
    ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml playbooks/buildagent.yml`
    ```
@@ -268,9 +269,13 @@ almost any POSIX-compliant O/S.
 ### I don’t like MariaDB
 
 You can tell these scripts to use Oracle MySQL 8.0.x instead by setting
-`inventory.db_type: mysql` in your inventory file. Using anything other than
-MySQL-based database servers is a heavier lift, as Openboxes’ migration scripts
-contain MySQL-specific code. Good luck!
+`inventory.db_type: mysql` in your inventory file. Note that a clean Ubuntu 22
+installation may contain MariaDB data in `/var/lib/mysql/` and Oracle MySQL may
+refuse to start up at first. If so, check `/etc/mysql/FROZEN` and follow its
+instructions.
+
+Using anything other than MySQL-based database servers is a heavier lift, as
+Openboxes’ migration scripts contain MySQL-specific code. Good luck!
 
 ### I don’t like Nginx
 
