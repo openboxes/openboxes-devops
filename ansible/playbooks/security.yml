@@ -53,3 +53,34 @@
         logging: 'on'
         policy: reject
         state: enabled
+
+    - name: Creating mysql log directory if not present
+      ansible.builtin.file:
+        group: mysql
+        mode: 'u+rwx,g+rs'
+        owner: mysql
+        path: /var/log/mysql
+        state: directory
+
+    - name: Touching mysql error file (fail2ban will not start without it)
+      ansible.builtin.file:
+        group: mysql
+        mode: '0660'
+        owner: mysql
+        path: /var/log/mysql/error.log
+        state: touch
+
+    - name: Configuring fail2ban protection
+      ansible.builtin.template:
+        dest: /etc/fail2ban/jail.local
+        group: root
+        mode: '0444'
+        owner: root
+        src: ../templates/jail.local.j2
+
+    - name: Starting fail2ban
+      ansible.builtin.systemd:
+        daemon_reload: true
+        enabled: true
+        name: fail2ban
+        state: restarted

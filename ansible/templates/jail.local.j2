@@ -1,0 +1,29 @@
+# Ansible generated this file from {{ template_path }}; do not edit locally!
+{# If this comment is present, this is the template file: disregard this warning #}
+
+{% if inventory.get('mysql', {}).get('enabled') %}
+[mysqld-auth]
+enabled = true
+logpath = /var/log/mysql/error.log
+{% endif %}
+
+{% if inventory.get('tomcat', {}).get('enabled') %}
+#
+# This module won't help us much out of the box, because Openboxes responds to
+# login failures with a 302 Found, not, e.g., 403. So to really get this working
+# the way it should, we should have add some regular expressions here to search
+# for 302 redirects like this:
+# >
+# > 98.247.183.173 - - [13/Jun/2023:20:04:07 +0000] "POST /openboxes/auth/handleLogin HTTP/2.0"
+# > 302 0 "https://obdev3.pih-emr.org/openboxes/auth/login"
+# > "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Safari/605.1.15"
+# >
+# In addition, we may want to consider nginx-limit-req. It is well-documented;
+# see: http://nginx.org/en/docs/http/ngx_http_limit_req_module.html
+#
+[nginx-http-auth]
+enabled = true
+{% endif %}
+
+[sshd]
+enabled = true
