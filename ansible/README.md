@@ -162,6 +162,19 @@ Ansible won’t want to connect to it, and neither will our Bamboo agents.
 5. Now you can follow Example #1 to install dependencies, copy a database, and
    prepare the host for CI deployment.
 
+## Example 8: Adding a new developer to the team
+
+1. Create a new ssh key and commit the public half of the key to
+   `ansible/public_keys/$username_$type.pub`, e.g. `jmiranda_ed25519.pub`.
+2. Edit `ansible/inventories/pih_rimu.yml`; most commonly you’ll want that user
+   to access all hosts, so you can just add to the existing
+   `all.vars.inventory.users` block. Or you can get clever and narrow the login
+   to specific host(s) if you like.
+3. If you want the user to have sudo access on all hosts, set `sudo_all: true`.
+   If you want to restrict their access to just dev hosts, set `sudo_dev: true`.
+   You can also limit the executables they can run with the `sudo_executables`
+   field (see the Bamboo entry for an example).
+
 ## Using these playbooks on older servers (like those in Azure)
 
 Legacy hosts aren’t configured as consistently as those in RIMU. A few things to
