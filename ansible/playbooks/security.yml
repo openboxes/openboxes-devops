@@ -42,18 +42,13 @@
         proto: tcp
         rule: allow
         src: "{{ item[1] }}"
-      loop: "{{ inventory.firewall | dict2items | subelements('value.ips') }}"
+      loop: >-
+        {{ inventory.firewall
+         | dict2items
+         | subelements('value.ips')
+         | rejectattr('1', 'equalto', 'localhost') }}
 
-    - name: Enabling remote DB access from remote webserver
-      when: inventory.get('remote_webserver')
-      community.general.ufw:
-        comment: allow access from remote webserver
-        port: 3306
-        proto: tcp
-        rule: allow
-        src: "{{ inventory.remote_webserver }}"
-
-    - name: Enabling firewall, with logging
+    - name: Activating firewall, with logging
       community.general.ufw:
         logging: 'on'
         policy: reject

@@ -1,0 +1,69 @@
+- name: Enabling deployment and remote restart with Bamboo
+  hosts: all
+  tasks:
+
+    - name: Adding restart-tomcat script for Bamboo
+      when: inventory.get('tomcat', {}).get('enabled')
+      ansible.builtin.template:
+        dest: /opt/restart-tomcat.sh
+        group: staff
+        mode: '0550'
+        owner: bamboo
+        src: ../templates/restart-tomcat.sh.j2
+
+    - name: Configuring Tomcat for first Bamboo deploy
+      when: inventory.get('tomcat', {}).get('enabled')
+      block:
+
+        - name: Declaring deployment targets
+          ansible.builtin.set_fact:
+            deployment_targets:
+              - "/var/lib/tomcat7/webapps{{ inventory.app_context }}"
+              - "/var/lib/tomcat85/webapps{{ inventory.app_context }}"
+
+        - name: Creating deployment directories if not present
+          ansible.builtin.file:
+            group: tomcat
+            mode: '0750'
+            owner: tomcat
+            path: "{{ item }}"
+            state: directory
+          loop: "{{ deployment_targets }}"
+
+        - name: Checking for existing deployments
+          register: find_results
+          ansible.builtin.find:
+            depth: 1
+            file_type: directory
+            paths: "{{ deployment_targets }}"
+            recurse: true
+            patterns:
+              - META-INF
+              - WEB-INF
+
+        - name: Starting dummy deploy with Tomcat manager
+          when: find_results.matched == 0
+          block:
+
+            - name: Restarting Tomcat service
+              ansible.builtin.systemd:
+                daemon_reload: true
+                enabled: true
+                name: tomcat
+                state: restarted
+
+            - name: Waiting for Tomcat manager to start up
+              register: tomcat_manager
+              ansible.builtin.uri:
+                password: "{{ vault.tomcat_users.bamboo.password }}"
+                url: http://localhost:8080/manager/text
+                user: bamboo
+              delay: 10
+              retries: 24
+              until: tomcat_manager.status == 200
+
+            - name: Starting a dummy deploy so Bamboo has something to replace
+              ansible.builtin.uri:
+                password: "{{ vault.tomcat_users.bamboo.password }}"
+                url: http://localhost:8080/manager/text/start?path={{ inventory.app_context }}
+                user: bamboo

@@ -1,0 +1,88 @@
+- name: Installing database server
+  hosts: all
+  vars:
+    mariadb_version: '10.11'
+
+  tasks:
+
+    - name: Ensuring host is running Ubuntu 22.04 LTS
+      when: ansible_facts.distribution_release != 'jammy' or ansible_facts.distribution_version != '22.04'
+      ansible.builtin.fail:
+        msg: this playbook requires Ubuntu 22.04 LTS
+
+    - name: Checking if host is configured for MariaDB
+      register: mariadb_config_file
+      ansible.builtin.stat:
+        path: /etc/mysql/mariadb.conf.d/70-openboxes.cnf
+
+    - name: Preventing accidental MariaDB -> MySQL 8 sidegrade
+      when: inventory.db_type == 'mysql' and mariadb_config_file.stat.exists
+      ansible.builtin.fail:
+        msg: host has MariaDB config, but Ansible is configured to install MySQL 8!
+
+    - name: Checking if host is configured for MySQL 8
+      register: mysql8_config_file
+      ansible.builtin.stat:
+        path: /etc/mysql/mysql.conf.d/70-openboxes.cnf
+
+    - name: Preventing accidental MySQL 8 -> MariaDB sidegrade
+      when: inventory.db_type == 'mariadb' and mysql8_config_file.stat.exists
+      ansible.builtin.fail:
+        msg: host has MySQL 8 config, but Ansible is configured to install MariaDB!
+
+    - name: Removing old/competing database releases
+      register: apt_uninstall
+      vars:
+        competitor: "{{ 'mariadb' if inventory.db_type == 'mysql' else 'mysql' }}"
+      ansible.builtin.apt:
+        autoremove: true
+        purge: true
+        state: absent
+        pkg:
+          - mariadb-client-10.6
+          - mariadb-server-10.6
+          - "{{ competitor }}-client"
+          - "{{ competitor }}-server"
+
+    - name: Collecting apt uninstall output
+      when: apt_uninstall.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ apt_uninstall.stdout_lines }}"
+          - "{{ apt_uninstall.stderr_lines }}"
+
+    - name: Adding MariaDB apt key and repository
+      when: inventory.db_type == 'mariadb'
+      ansible.builtin.shell:
+        cmd: >-
+          set -euo pipefail &&
+          curl -sLS https://r.mariadb.com/downloads/mariadb_repo_setup |
+          bash -s -- --mariadb-server-version="mariadb-{{ mariadb_version }}"
+        creates: /etc/apt/sources.list.d/mariadb.list
+      args:
+        executable: /usr/bin/bash
+
+    - name: Removing MariaDB repository
+      when: inventory.db_type != 'mariadb'
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/mariadb.list
+        state: absent
+
+    - name: Installing dependencies with apt
+      register: apt_install
+      ansible.builtin.apt:
+        cache_valid_time: 3600
+        install_recommends: true
+        state: latest
+        update_cache: true
+        pkg:
+          - libaio1
+          - "{{ inventory.db_type }}-client"
+          - "{{ inventory.db_type }}-server"
+
+    - name: Collecting apt install output
+      when: apt_install.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ apt_install.stdout_lines }}"
+          - "{{ apt_install.stderr_lines }}"

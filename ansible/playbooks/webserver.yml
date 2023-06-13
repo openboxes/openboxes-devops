@@ -1,0 +1,187 @@
+- name: Installing Tomcat
+  hosts: all
+  vars:
+    logback_version: '1.2.11'
+    tomcat7_version: '7.0.109'
+    tomcat8_version: '8.5.89'
+
+  tasks:
+
+    - name: Ensuring host is running Ubuntu 22.04 LTS
+      when: ansible_facts.distribution_release != 'jammy' or ansible_facts.distribution_version != '22.04'
+      ansible.builtin.fail:
+        msg: this playbook requires Ubuntu 22.04 LTS
+
+    - name: Adding Zulu apt key
+      ansible.builtin.apt_key:
+        # see https://www.azul.com/signing-keys/
+        url: https://repos.azul.com/azul-repo.key
+
+    - name: Adding Zulu apt repository
+      ansible.builtin.apt_repository:
+        # see https://docs.azul.com/core/zulu-openjdk/install/debian
+        repo: deb https://repos.azul.com/zulu/deb stable main
+
+    - name: Installing dependencies with apt
+      register: apt_install
+      ansible.builtin.apt:
+        cache_valid_time: 3600
+        install_recommends: true
+        state: latest
+        update_cache: true
+        pkg:
+          - libtcnative-1
+          - mailutils
+          - zulu-7
+          - zulu-8
+
+    - name: Collecting apt install output
+      when: apt_install.stdout_lines is defined
+      ansible.builtin.debug:
+        msg:
+          - "{{ apt_install.stdout_lines }}"
+          - "{{ apt_install.stderr_lines }}"
+
+    - name: Adding required groups
+      ansible.builtin.group:
+        gid: "{{ item.gid }}"
+        name: "{{ item.name }}"
+      loop:
+        - gid: 512
+          name: tomcat
+        - gid: 1510
+          name: staff
+
+    - name: Adding tomcat user
+      ansible.builtin.user:
+        create_home: true
+        group: tomcat
+        name: tomcat
+        password: '!'
+        system: true
+        uid: 511
+
+
+    - name: Creating temporary download directory
+      register: tmp_download_dir
+      ansible.builtin.tempfile:
+        state: directory
+        suffix: .download
+
+    - name: Downloading Tomcat archives
+      ansible.builtin.get_url:
+        checksum: "sha512:{{ item.url }}.sha512"
+        dest: "{{ item.dest }}"
+        mode: '0400'
+        timeout: 60
+        url: "{{ item.url }}"
+      loop:
+        - dest: "{{ tmp_download_dir.path }}/tomcat7.tgz"
+          url: "https://archive.apache.org/dist/tomcat/tomcat-7/v{{ tomcat7_version }}/bin/apache-tomcat-{{ tomcat7_version }}.tar.gz"
+        - dest: "{{ tmp_download_dir.path }}/tomcat85.tgz"
+          url: "https://archive.apache.org/dist/tomcat/tomcat-8/v{{ tomcat8_version }}/bin/apache-tomcat-{{ tomcat8_version }}.tar.gz"
+
+    - name: Unpacking Tomcat archives
+      ansible.builtin.unarchive:
+        dest: /opt
+        group: tomcat
+        owner: tomcat
+        remote_src: true
+        src: "{{ tmp_download_dir.path }}/{{ item }}.tgz"
+        extra_opts:
+          - --transform
+          - 's!^[^/]\+\($\|/\)!{{ item }}\1!'
+      loop:
+        - tomcat7
+        - tomcat85
+
+    - name: Downloading and installing Tomcat 7 extras
+      ansible.builtin.get_url:
+        checksum: "sha512:{{ item.url }}.sha512"
+        dest: "{{ item.dest }}"
+        mode: '0400'
+        url: "{{ item.url }}"
+      loop:
+        - dest: /opt/tomcat7/bin/tomcat-juli.jar
+          url: "https://archive.apache.org/dist/tomcat/tomcat-7/v{{ tomcat7_version }}/bin/extras/tomcat-juli.jar"
+        - dest: /opt/tomcat7/bin/tomcat-juli-adapters.jar
+          url: "https://archive.apache.org/dist/tomcat/tomcat-7/v{{ tomcat7_version }}/bin/extras/tomcat-juli-adapters.jar"
+
+    - name: Initializing directory tree in CATALINA_BASE
+      ansible.builtin.file:
+        group: tomcat
+        mode: '0750'
+        owner: tomcat
+        path: "{{ '/'.join(item) }}"
+        state: directory
+      loop: >
+        {{ ['/var/lib']
+         | product(['tomcat7', 'tomcat85'])
+         | map('join', '/')
+         | product(['bin', 'lib', 'temp', 'webapps']) }}
+
+    - name: Creating Tomcat logging directory
+      ansible.builtin.file:
+        group: tomcat
+        mode: '0755'
+        owner: tomcat
+        path: "/var/log/{{ item }}"
+        state: directory
+      loop:
+        - tomcat7
+        - tomcat85
+
+    - name: Symlinking Tomcat logging directory
+      ansible.builtin.file:
+        dest: "/var/lib/{{ item }}/logs"
+        group: tomcat
+        owner: tomcat
+        src: "/var/log/{{ item }}"
+        state: link
+      loop:
+        - tomcat7
+        - tomcat85
+
+    - name: Copying default Tomcat config files to CATALINA_BASE
+      ansible.builtin.copy:
+        dest: "/var/lib/{{ item }}"
+        group: tomcat
+        mode: preserve
+        owner: tomcat
+        remote_src: true
+        src: "/opt/{{ item }}/conf"
+      loop:
+        - tomcat7
+        - tomcat85
+
+    - name: Copying default Tomcat webapps to CATALINA_BASE
+      ansible.builtin.copy:
+        dest: "/var/lib/{{ item[0] }}/webapps"
+        group: tomcat
+        mode: preserve
+        owner: tomcat
+        remote_src: true
+        src: "/opt/{{ item[0] }}/webapps/{{ item[1] }}"
+      loop: "{{ ['tomcat7', 'tomcat85'] | product(['ROOT', 'host-manager', 'manager']) }}"
+
+    - name: Downloading and installing logback-access
+      ansible.builtin.get_url:
+        checksum: "sha1:{{ url }}.sha1"
+        dest: "/var/lib/{{ webserver }}/lib/{{ dependency }}.jar"
+        group: tomcat
+        mode: '0400'
+        owner: tomcat
+        url: "{{ url }}"
+      loop: "{{ ['tomcat7', 'tomcat85'] | product(['logback-access', 'logback-core']) }}"
+      vars:
+        webserver: "{{ item[0] }}"
+        dependency: "{{ item[1] }}"
+        url: "https://repo1.maven.org/maven2/ch/qos/logback/{{ dependency }}/{{ logback_version }}/{{ dependency }}-{{ logback_version }}.jar"
+
+    - name: Creating Tomcat systemd service
+      ansible.builtin.template:
+        dest: /etc/systemd/system/tomcat.service
+        group: root
+        mode: '0444'
+        owner: root
+        src: ../templates/tomcat.service.j2

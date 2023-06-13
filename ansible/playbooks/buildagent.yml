@@ -110,7 +110,7 @@
         mode: '0400'
         owner: bamboo
         timeout: 30
-        # to find this URL, point a browser to {{ server_version.stdout }}/admin/agent/addRemoteAgent.action
+        # to find this URL, point a browser to {{ inventory.bamboo.server_url }}/admin/agent/addRemoteAgent.action
         url: "{{ inventory.bamboo.server_url }}/agentServer/agentInstaller/atlassian-bamboo-agent-installer-{{ server_version.stdout }}.jar"
 
     - name: Installing Bamboo remote agent

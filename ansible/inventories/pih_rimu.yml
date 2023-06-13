@@ -8,11 +8,26 @@ all:
       backup_target: openboxes@host-90420072.bakop.com
       db_name: openboxes
       db_type: mariadb
+      firewall: &common_firewall
+        jmiranda:
+          ips:
+            - 65.29.169.164
+          port: 3306
+        knagel:
+          ips:
+            - 10.160.28.102
+          mysql_user: knagel
+          port: 3306
+        openboxes:
+          ips:
+            - localhost
+          port: 3306
+        soldevelo:
+          ips:
+            - 194.181.116.130
+          port: 3306
       mail:
-        admins:
-          - justin@openboxes.com
-          - mpearson@pih.org
-        bcc:
+        developers:
           - justin@openboxes.com
           - mpearson@pih.org
         host: smtp.sendgrid.net
@@ -29,6 +44,44 @@ all:
         slow_query_log: 1
       tomcat: &common_tomcat
         newsize: 256m
+      users:
+        anadolny:
+          key_file: ../public_keys/anadolny_ed25519.pub
+          uid: 1506
+        awalkowiak:
+          key_file: ../public_keys/awalkowiak_ed25519.pub
+          sudo_all: true
+          uid: 1505
+        bamboo:
+          key_file: ../public_keys/bamboo_ed25519.pub
+          sudo_executables:
+            - /sbin/service
+            - /usr/sbin/service
+          uid: 1509
+        drodzewicz:
+          key_file: ../public_keys/drodzewicz_ed25519.pub
+          sudo_dev: true
+          uid: 1504
+        jmbabazi:
+          key_file: ../public_keys/jmbabazi_rsa.pub
+          sudo_all: true
+          uid: 1501
+        jmiranda:
+          key_file: ../public_keys/jmiranda_ed25519.pub
+          sudo_all: true
+          uid: 1508
+        kchelstowski:
+          key_file: ../public_keys/kchelstowski_ed25519.pub
+          sudo_dev: true
+          uid: 1503
+        kkrawczyk:
+          key_file: ../public_keys/kkrawczyk_ed25519.pub
+          uid: 1502
+        mpearson:
+          sudo_all: true
+          uid: 1510
+        soldevelo:
+          uid: 1507
 
   children:
     big_webservers:
@@ -84,44 +137,28 @@ all:
       vars:
         inventory: &big_dbserver_inventory
           <<: *common_inventory
-          firewall:
-            jmiranda:
-              ips:
-                - 65.29.169.164
-              port: 3306
-            knagel:
-              ips:
-                - 10.160.28.102
-              port: 3306
-              users:
-                - knagel
+          firewall: &big_firewall
+            <<: *common_firewall
             pih_cld_whdev:
               ips:
                 - 40.70.215.46
+              mysql_user: finance
               port: 3306
               require_mysql_ssl: false
-              users:
-                - finance
             pih_cld_whprod:
               ips:
                 - 52.177.217.36
+              mysql_user: finance
               port: 3306
               require_mysql_ssl: false
-              users:
-                - finance
             rapidi:
               ips:
                 - 44.231.117.185
                 - 52.89.22.131
+              mysql_user: finance
               port: 3306
               require_mysql_ssl: true
-              users:
-                - finance
-            soldevelo:
-              ips:
-                - 194.181.116.130
-              port: 3306
-          mysql:
+          mysql: &big_mysql
             <<: *common_mysql
             enabled: true
             innodb_buffer_pool_size: 17179869184  # 16 GBytes
@@ -132,11 +169,28 @@ all:
           ansible_host: 74.50.49.138
           inventory:
             <<: *big_dbserver_inventory
+            firewall:
+              <<: *big_firewall
+              openboxes:
+                ips:
+                  - localhost
+                  - 74.50.49.135
+                port: 3306
             remote_webserver: 74.50.49.135
         dbstg:
           ansible_host: 74.50.49.124
           inventory:
             <<: *big_dbserver_inventory
+            firewall:
+              <<: *big_firewall
+              openboxes:
+                ips:
+                  - localhost
+                  - 74.50.49.133
+                port: 3306
+            mysql:
+              <<: *big_mysql
+              innodb_buffer_pool_size: 8589934592  # 8 GBytes
             remote_webserver: 74.50.49.133
 
     little_instances:
@@ -147,6 +201,8 @@ all:
           grails:
             quartz_threads: 4
             send_mail: false
+          firewall:
+            <<: *common_firewall
           mysql:
             <<: *common_mysql
             enabled: true

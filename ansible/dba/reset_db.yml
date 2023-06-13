@@ -12,6 +12,24 @@
       ansible.builtin.fail:
         msg: "you must use -l or --limit! If you really want to use all hosts, use -l 'all'"
 
+    - name: "Checking current status of https://...{{ inventory.app_context }}"
+      register: initial_https_response
+      when: ansible_connection != 'local'
+      ansible.builtin.uri:
+        status_code:
+          - 200
+          - 404
+          - 502
+        url: "https://{{ inventory.get('remote_webserver', ansible_fqdn) }}{{ inventory.app_context }}"
+        validate_certs: false
+
+    - name: "Warning user of missing deployment"
+      when: ansible_connection != 'local' and initial_https_response.status == 404
+      ansible.builtin.debug:
+        msg:
+          - "Host does not appear to have Openboxes installed or running"
+          - "Will continue the playbook without verifying its success"
+
     - name: Stopping Tomcat service
       when: ansible_connection != 'local'
       ansible.builtin.systemd:
@@ -71,11 +89,21 @@
       retries: 180  # migrations can take a very long time starting from scratch
       register: https_response
       until: https_response.status == 200
-      when: ansible_connection != 'local'
+      when: ansible_connection != 'local' and initial_https_response.status != 404
       ansible.builtin.uri:
         url: "https://{{ inventory.get('remote_webserver', ansible_fqdn) }}{{ inventory.app_context }}"
         validate_certs: false
 
-- name: Re-enabling PIH user access
+- name: Re-enabling user access
   when: ansible_connection != 'local'
-  ansible.builtin.import_playbook: ../playbooks/enable_pih_user_access.yml
+  ansible.builtin.import_playbook: ../playbooks/users.yml
+
+- name: "Warning user of missing deployment"
+  hosts: all:!prd
+  tasks:
+    - name: "Warning user of missing deployment"
+      when: ansible_connection != 'local' and initial_https_response.status == 404
+      ansible.builtin.debug:
+        msg:
+          - "Openboxes is not running on host: cannot verify successful database reset"
+          - "Proceed with caution (or, if this is a fresh instance, simply deploy Openboxes)"
