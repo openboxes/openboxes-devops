@@ -158,7 +158,7 @@ all:
               mysql_user: finance
               port: 3306
               require_mysql_ssl: true
-          mysql:
+          mysql: &big_mysql
             <<: *common_mysql
             enabled: true
             innodb_buffer_pool_size: 17179869184  # 16 GBytes
@@ -188,6 +188,9 @@ all:
                   - localhost
                   - 74.50.49.133
                 port: 3306
+            mysql:
+              <<: *big_mysql
+              innodb_buffer_pool_size: 8589934592  # 8 GBytes
             remote_webserver: 74.50.49.133
 
     little_instances:
