@@ -134,6 +134,12 @@ $ mv openboxes.tgz build/archive_db/dbprd/
 $ ansible-playbook -e @secrets/vault_rimu -i inventories/pih_rimu.yml dba/restore_db.yml -l prd -e 'force=true'
 ```
 
+_Note that we have kept monthly backups from our previous Azure host on the same
+system. These are located under `obnav-azure.pih-emr.org` and date back to 2018.
+The directory structure for these is a little different than what we use for
+current backups but after downloading the restoration steps should be identical,
+at least for reasonably recent ones._
+
 ## Example 7: Completely tear down and re-create a host (involved)
 
 The following instructions assume you’re using RIMU. Other hosting providers
