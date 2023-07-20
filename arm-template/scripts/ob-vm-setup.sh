@@ -8,20 +8,19 @@ then
 fi
 
 # Install Java 8 with Zulu
-sudo apt install gnupg ca-certificates curl
 sudo curl -s https://repos.azul.com/azul-repo.key | sudo gpg --dearmor -o /usr/share/keyrings/azul.gpg
 sudo echo "deb [signed-by=/usr/share/keyrings/azul.gpg] https://repos.azul.com/zulu/deb stable main" | sudo tee /etc/apt/sources.list.d/zulu.list
 sudo apt update
-sudo apt install zulu-8 
+sudo apt install -y zulu-8 
 
 # Check java version
 java -version
 
 # Install nginx
-sudo apt install nginx 
+sudo apt install -y nginx 
 
 # Install MySQL
-sudo apt install mysql-server-5.7
+sudo apt install -y mysql-server-5.7
 
 # MySQL DB setup
 sudo mysql -u root -e "CREATE DATABASE openboxes default charset utf8;"
