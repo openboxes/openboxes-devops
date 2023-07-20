@@ -8,11 +8,20 @@ then
 fi
 
 # Install Java 8 with Zulu
-sudo apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 0xB1998361219BD9C9
-sudo apt-add-repository 'deb http://repos.azulsystems.com/ubuntu stable main'
-sudo apt-get update
-sudo apt-get install -y zulu-8 nginx mysql-server-5.7 
+sudo apt install gnupg ca-certificates curl
+sudo curl -s https://repos.azul.com/azul-repo.key | sudo gpg --dearmor -o /usr/share/keyrings/azul.gpg
+sudo echo "deb [signed-by=/usr/share/keyrings/azul.gpg] https://repos.azul.com/zulu/deb stable main" | sudo tee /etc/apt/sources.list.d/zulu.list
+sudo apt update
+sudo apt install zulu-8 
+
+# Check java version
 java -version
+
+# Install nginx
+sudo apt install nginx 
+
+# Install MySQL
+sudo apt install mysql-server-5.7
 
 # MySQL DB setup
 sudo mysql -u root -e "CREATE DATABASE openboxes default charset utf8;"
@@ -22,7 +31,7 @@ sudo mysql -u root -e "GRANT ALL on openboxes.* to openboxes@localhost IDENTIFIE
 # Download OpenBoxes WAR
 sudo mkdir -p /opt/openboxes/.grails
 cd /opt/openboxes/
-sudo wget --no-verbose http://bamboo.pih-emr.org:8085/browse/OPENBOXES-DSOBGM/latest/artifact/shared/Latest-WAR/openboxes.war
+sudo wget --no-verbose https://bamboo-ci.pih-emr.org/browse/OPENBOXES-OBDEV3/latest/artifact/shared/Latest-WAR/openboxes.war
 
 # Create Grails configuration file and move it to /opt/openboxes/.grails/
 cat <<-EOT > /tmp/openboxes.yml
