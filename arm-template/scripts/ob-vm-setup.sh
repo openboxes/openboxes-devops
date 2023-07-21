@@ -7,17 +7,17 @@ then
     MYSQL_USER_PASSWORD=$1
 fi
 
-# Install Java 8 with Zulu
-sudo curl -s https://repos.azul.com/azul-repo.key | sudo gpg --dearmor -o /usr/share/keyrings/azul.gpg
-sudo echo "deb [signed-by=/usr/share/keyrings/azul.gpg] https://repos.azul.com/zulu/deb stable main" | sudo tee /etc/apt/sources.list.d/zulu.list
+# Update APT repository
 sudo apt update
-sudo apt install -y zulu-8 
+
+# Install Java 8 with Zulu
+sudo apt install -y openjdk-8-jre
 
 # Check java version
 java -version
 
 # Install nginx
-sudo apt install -y nginx 
+sudo apt install -y nginx
 
 # Install MySQL
 sudo apt install -y mysql-server-5.7
@@ -34,7 +34,7 @@ sudo wget --no-verbose https://bamboo-ci.pih-emr.org/browse/OPENBOXES-OBDEV3/lat
 
 # Create Grails configuration file and move it to /opt/openboxes/.grails/
 cat <<-EOT > /tmp/openboxes.yml
-dataSource.dbCreate: none 
+dataSource.dbCreate: none
 dataSource.url: jdbc:mysql://localhost:3306/openboxes?useSSL=false
 dataSource.username: openboxes
 dataSource.password: ${MYSQL_USER_PASSWORD}
@@ -45,7 +45,7 @@ EOT
 sudo mv /tmp/openboxes.yml /opt/openboxes/.grails/openboxes.yml
 
 # Setup openboxes user and files access
-sudo useradd --user-group --shell /bin/false  --home-dir /opt/openboxes openboxes 
+sudo useradd --user-group --shell /bin/false  --home-dir /opt/openboxes openboxes
 sudo chown -R openboxes:openboxes /opt/openboxes
 
 # Installation OB as a systemd Service
