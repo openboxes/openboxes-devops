@@ -198,7 +198,7 @@ all:
         inventory: &little_instance_inventory
           <<: *common_inventory
           db_url: jdbc:mysql://localhost:3306/openboxes?allowPublicKeyRetrieval=true&dumpQueriesOnException=true&includeInnodbStatusInDeadlockExceptions=false&useSSL=false
-          grails:
+          grails: &little_grails
             quartz_threads: 4
             send_mail: false
           firewall:
@@ -246,6 +246,9 @@ all:
               <<: *little_tomcat
               jdk: zulu8
               name: tomcat85
+            grails:
+              <<: *little_grails
+              send_mail: true
         obdev4:
           ansible_host: 74.50.49.134
           inventory:
