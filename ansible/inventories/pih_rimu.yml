@@ -252,8 +252,8 @@ all:
             <<: *little_instance_inventory
             tomcat:
               <<: *little_tomcat
-              jdk: zulu7
-              name: tomcat7
+              jdk: zulu8
+              name: tomcat85
         obdev5:
           ansible_host: 74.50.48.61
           inventory:
