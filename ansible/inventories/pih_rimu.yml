@@ -207,7 +207,7 @@ all:
             <<: *common_mysql
             enabled: true
             innodb_buffer_pool_size: 1073741824  # 1 GByte
-          swap_size: 10GiB  # argument to fallocate -l
+          swap_size: 3GiB  # argument to fallocate -l
           tomcat: &little_tomcat
             <<: *common_tomcat
             enabled: true
