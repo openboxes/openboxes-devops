@@ -15,8 +15,9 @@ all:
           port: 3306
         knagel:
           ips:
-            - 10.160.28.102
+            - 72.93.97.81
           mysql_user: knagel
+          read_only: true
           port: 3306
         openboxes:
           ips:
