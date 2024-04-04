@@ -47,6 +47,7 @@ all:
       users:
         anadolny:
           key_file: ../public_keys/anadolny_ed25519.pub
+          sudo_dev: true
           uid: 1506
         awalkowiak:
           key_file: ../public_keys/awalkowiak_ed25519.pub
@@ -62,6 +63,10 @@ all:
           key_file: ../public_keys/drodzewicz_ed25519.pub
           sudo_dev: true
           uid: 1504
+        ewaterman:
+          key_file: ../public_keys/ewaterman_ed25519.pub
+          sudo_dev: true
+          uid: 1511
         jmbabazi:
           key_file: ../public_keys/jmbabazi_rsa.pub
           sudo_all: true
@@ -76,10 +81,8 @@ all:
           uid: 1503
         kkrawczyk:
           key_file: ../public_keys/kkrawczyk_ed25519.pub
+          sudo_dev: true
           uid: 1502
-        mpearson:
-          sudo_all: true
-          uid: 1510
         soldevelo:
           uid: 1507
 
