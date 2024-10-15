@@ -170,31 +170,29 @@
             - tomcat85
 
     - name: Configuring Sentry
-      when: ansible_hostname in vault.get('sentry_dsn', {})
       block:
 
-        - name: Adding Sentry flags to Tomcat's setenv.sh
+        - name: Adding Sentry DSN to Tomcat's setenv.sh
+          when: vault.get('sentry', {}).get('dsn') != null
           ansible.builtin.lineinfile:
             insertafter: EOF
-            line: "export SENTRY_DSN={{ vault.sentry_dsn[ansible_hostname] }}  # ANSIBLE MANAGED"
+            line: "export SENTRY_DSN={{ vault.sentry.dsn }}  # ANSIBLE MANAGED"
             path: "{{ item }}"
           no_log: true
           loop:
             - /var/lib/tomcat7/bin/setenv.sh
             - /var/lib/tomcat85/bin/setenv.sh
 
-        - name: Activating Grails' Sentry plugin
+        - name: Adding Sentry environment to Tomcat's setenv.sh
+          when: ansible_hostname in vault.get('sentry', {}).get('environment')
           ansible.builtin.lineinfile:
             insertafter: EOF
-            line: 'grails.plugins.raven.active = true'
-            path: /home/tomcat/.grails/openboxes-config.groovy
-            regexp: 'grails.plugins.raven.active = false'
-
-        - name: Configuring Grails' Sentry plugin
-          ansible.builtin.lineinfile:
-            insertafter: 'grails.plugins.raven.active'
-            line: "grails.plugins.raven.dsn = \"{{ vault.sentry_dsn[inventory_hostname] }}\""
-            path: /home/tomcat/.grails/openboxes-config.groovy
+            line: "export SENTRY_ENVIRONMENT={{ vault.sentry.environment[ansible_hostname] }}  # ANSIBLE MANAGED"
+            path: "{{ item }}"
+          no_log: true
+          loop:
+            - /var/lib/tomcat7/bin/setenv.sh
+            - /var/lib/tomcat85/bin/setenv.sh
 
     - name: Disabling database service
       when: not inventory.get('mysql', {}).get('enabled')
