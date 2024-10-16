@@ -173,7 +173,7 @@
       block:
 
         - name: Adding Sentry DSN to Tomcat's setenv.sh
-          when: vault.get('sentry', {}).get('dsn') != null
+          when: vault.get('sentry', {}).get('dsn') != None
           ansible.builtin.lineinfile:
             insertafter: EOF
             line: "export SENTRY_DSN={{ vault.sentry.dsn }}  # ANSIBLE MANAGED"
