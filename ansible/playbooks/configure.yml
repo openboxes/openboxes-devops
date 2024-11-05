@@ -169,30 +169,97 @@
             - tomcat7
             - tomcat85
 
+    # Expects the following configuration structure in the Ansible vault:
+    #
+    # sentry:
+    #   environments:
+    #     <ansible_hostname>:
+    #       name: <sentry_environment> (usually will be the same as <ansible_hostname>)
+    #       legacy: true/false
+    #       dsn:
+    #         backend: https://...@.ingest.us.sentry.io/... (if want to disable, leave blank)
+    #         frontend_web: https://...@.ingest.us.sentry.io/... (if want to disable, leave blank)
+    #
+    # And outputs the following environment variables: SENTRY_DSN_FRONTEND_WEB, SENTRY_DSN_BACKEND, SENTRY_ENVIRONMENT
     - name: Configuring Sentry
+      when: vault.sentry is defined
       block:
 
-        - name: Adding Sentry DSN to Tomcat's setenv.sh
-          when: vault.get('sentry', {}).get('dsn') != None
-          ansible.builtin.lineinfile:
-            insertafter: EOF
-            line: "export SENTRY_DSN={{ vault.sentry.dsn }}  # ANSIBLE MANAGED"
-            path: "{{ item }}"
-          no_log: true
-          loop:
-            - /var/lib/tomcat7/bin/setenv.sh
-            - /var/lib/tomcat85/bin/setenv.sh
+        # For Grails 1 environments (0.8.x and older)
+        - name: Configuring Sentry For Host (Legacy)
+          when:
+            - vault.sentry.environments[ansible_hostname] is defined
+            - vault.sentry.environments[ansible_hostname].legacy
+          block:
 
-        - name: Adding Sentry environment to Tomcat's setenv.sh
-          when: ansible_hostname in vault.get('sentry', {}).get('environment')
-          ansible.builtin.lineinfile:
-            insertafter: EOF
-            line: "export SENTRY_ENVIRONMENT={{ vault.sentry.environment[ansible_hostname] }}  # ANSIBLE MANAGED"
-            path: "{{ item }}"
-          no_log: true
-          loop:
-            - /var/lib/tomcat7/bin/setenv.sh
-            - /var/lib/tomcat85/bin/setenv.sh
+          - name: Activating Grails 1 Sentry plugin
+            ansible.builtin.lineinfile:
+              line: 'grails.plugins.raven.active = true'
+              path: /home/tomcat/.grails/openboxes-config.groovy
+              regexp: 'grails.plugins.raven.active = false'
+
+          - name: Configuring Grails 1 Sentry DSN
+            ansible.builtin.lineinfile:
+              insertafter: 'grails.plugins.raven.active'
+              line: "grails.plugins.raven.dsn = \"{{ vault.sentry.environments[ansible_hostname].dsn.backend }}\""
+              path: /home/tomcat/.grails/openboxes-config.groovy
+              regexp: "^grails.plugins.raven.dsn ="
+            no_log: true
+
+        # For Grails 3 environments (0.9.x and newer)
+        - name: Configuring Sentry For Host
+          when:
+            - vault.sentry.environments[ansible_hostname] is defined
+            - not vault.sentry.environments[ansible_hostname].legacy
+          block:
+
+            # Sentry looks specifically for the "SENTRY_DSN" environment variable and will use it for all its DSN
+            # values. Because we need to support multiple possible DSNs, we need to use our own custom environment
+            # variables and this one needs to be unset.
+            - name: Removing old Sentry DSN from Tomcat's setenv.sh
+              ansible.builtin.lineinfile:
+                regexp: "^export SENTRY_DSN="
+                path: "{{ item }}"
+                state: absent
+              no_log: true
+              loop:
+                - /var/lib/tomcat7/bin/setenv.sh
+                - /var/lib/tomcat85/bin/setenv.sh
+
+            - name: Adding Sentry Environment to Tomcat's setenv.sh (optional)
+              when: vault.sentry.environments[ansible_hostname].name is defined
+              ansible.builtin.lineinfile:
+                line: "export SENTRY_ENVIRONMENT={{ vault.sentry.environments[ansible_hostname].name }}  # ANSIBLE MANAGED"
+                regexp: "^export SENTRY_ENVIRONMENT="
+                path: "{{ item }}"
+              no_log: true
+              loop:
+                - /var/lib/tomcat7/bin/setenv.sh
+                - /var/lib/tomcat85/bin/setenv.sh
+
+            - name: Adding Sentry Backend DSN to Tomcat's setenv.sh (optional)
+              when: vault.sentry.environments[ansible_hostname].dsn.backend is defined
+              ansible.builtin.lineinfile:
+                line: "export SENTRY_DSN_BACKEND={{ vault.sentry.environments[ansible_hostname].dsn.backend }}  # ANSIBLE MANAGED"
+                regexp: "^export SENTRY_DSN_BACKEND="
+                insertafter: "^export SENTRY_ENVIRONMENT="
+                path: "{{ item }}"
+              no_log: true
+              loop:
+                - /var/lib/tomcat7/bin/setenv.sh
+                - /var/lib/tomcat85/bin/setenv.sh
+
+            - name: Adding Sentry Frontend (Web) DSN to Tomcat's setenv.sh (optional)
+              when: vault.sentry.environments[ansible_hostname].dsn.frontend_web is defined
+              ansible.builtin.lineinfile:
+                line: "export SENTRY_DSN_FRONTEND_WEB={{ vault.sentry.environments[ansible_hostname].dsn.frontend_web }}  # ANSIBLE MANAGED"
+                regexp: "^export SENTRY_DSN_FRONTEND_WEB="
+                insertafter: "^export SENTRY_DSN_BACKEND="
+                path: "{{ item }}"
+              no_log: true
+              loop:
+                - /var/lib/tomcat7/bin/setenv.sh
+                - /var/lib/tomcat85/bin/setenv.sh
 
     - name: Disabling database service
       when: not inventory.get('mysql', {}).get('enabled')
