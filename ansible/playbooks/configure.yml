@@ -1,173 +1,173 @@
 - name: Configuring OpenBoxes
-  hosts: all
+  hosts: obdev5
   tasks:
 
-    - name: Disabling Tomcat session persistence
-      ansible.builtin.replace:
-        # prevent 'ClassNotFoundException while loading persisted sessions'
-        path: "/var/lib/{{ item }}/conf/context.xml"
-        regexp: '(\s*)<!--\s*\n(\s*)<Manager pathname="" />.*\n(\s*)-->.*'
-        replace: '\1<Manager pathname="" /> <!-- ANSIBLE ENABLED -->'
-      loop:
-        - tomcat7
-        - tomcat85
-
-    - name: Increasing Tomcat cache size
-      ansible.builtin.lineinfile:
-        insertbefore: '^</Context>'
-        # prevent org.apache.catalina.webresources.Cache.getResource failures
-        line: '  <Resources cachingAllowed="true" cacheMaxSize="262144" /> <!-- ANSIBLE MANAGED -->'
-        path: "/var/lib/{{ item }}/conf/context.xml"
-        regexp: 'cacheMaxSize'
-      loop:
-        - tomcat7
-        - tomcat85
-
-    - name: Removing IP-based access restrictions on Tomcat manager
-      ansible.builtin.replace:
-        after: 'privileged="true" >'
-        before: '  <Manager'
-        path: "/var/lib/{{ item }}/webapps/manager/META-INF/context.xml"
-        regexp: '^(  )( *(?:<Valve|allow).*)$'
-        replace: '\1<!-- ANSIBLE MANAGED: \2 -->'
-      loop:
-        - tomcat7
-        - tomcat85
-
-    - name: Configuring logback-access
-      ansible.builtin.template:
-        dest: "/var/lib/{{ item }}/conf/logback-access.xml"
-        group: tomcat
-        mode: '0400'
-        owner: tomcat
-        src: ../templates/logback-access.xml.j2
-      loop:
-        - tomcat7
-        - tomcat85
-
-    - name: Attaching logback-access to Tomcat
-      ansible.builtin.lineinfile:
-        insertbefore: '</Host>'
-        line: '        <Valve className="ch.qos.logback.access.tomcat.LogbackValve" filename="conf/logback-access.xml"/> <!-- ANSIBLE MANAGED -->'
-        path: "/var/lib/{{ item }}/conf/server.xml"
-        regexp: 'LogbackValve'
-      loop:
-        - tomcat7
-        - tomcat85
-
-    - name: Configuring Tomcat log rotation
-      when: inventory.get('tomcat', {}).get('enabled')
-      ansible.builtin.template:
-        dest: /etc/logrotate.d/tomcat
-        group: root
-        mode: '0444'
-        owner: root
-        src: ../templates/tomcat.logrotate.j2
-
-    - name: Configuring Tomcat environment variables
-      ansible.builtin.template:
-        dest: "/var/lib/{{ item }}/bin/setenv.sh"
-        group: tomcat
-        mode: '0550'
-        owner: tomcat
-        src: ../templates/setenv.sh.j2
-      loop:
-        - tomcat7
-        - tomcat85
-
-    - name: Creating Nginx directory for static assets
-      ansible.builtin.file:
-        group: nginx
-        mode: '0755'
-        owner: nginx
-        path: /etc/nginx/static
-        state: directory
-
-    - name: Uploading logo images
-      ansible.builtin.copy:
-        dest: /etc/nginx/static
-        group: nginx
-        mode: '0444'
-        owner: nginx
-        src: ../static/images
-
-    - name: Creating Grails configuration directory
-      ansible.builtin.file:
-        group: tomcat
-        mode: '0755'
-        owner: tomcat
-        path: /home/tomcat/.grails
-        state: directory
-
-    - name: Removing stale Grails configuration
-      ansible.builtin.file:
-        path: "{{ item }}"
-        state: absent
-      loop:
-        - /home/tomcat/.grails/openboxes-config.properties
-        - /var/lib/tomcat7/.grails
-        - /var/lib/tomcat85/.grails
-
-    - name: Configuring Grails
-      ansible.builtin.template:
-        dest: /home/tomcat/.grails/openboxes-config.groovy
-        group: tomcat
-        mode: '0444'
-        owner: tomcat
-        src: ../templates/openboxes-config.groovy.j2
-
-    - name: "Redirecting / to {{ inventory.app_context }}"
-      ansible.builtin.template:
-        dest: "/var/lib/{{ item }}/webapps/ROOT/index.jsp"
-        group: tomcat
-        mode: '0440'
-        owner: tomcat
-        src: ../templates/index.jsp.j2
-      loop:
-        - tomcat7
-        - tomcat85
-
-
-    - name: Configuring New Relic
-      when: vault.new_relic is defined
-      block:
-
-        - name: Adding New Relic flags to Tomcat's setenv.sh
-          ansible.builtin.lineinfile:
-            insertafter: EOF
-            line: "{{ item.line }}"
-            path: "{{ item.path }}"
-          loop:
-            - line: "export CATALINA_OPTS=\"$CATALINA_OPTS -javaagent:/var/lib/tomcat7/newrelic/newrelic.jar\"  # ANSIBLE MANAGED"
-              path: /var/lib/tomcat7/bin/setenv.sh
-            - line: "export CATALINA_OPTS=\"$CATALINA_OPTS -javaagent:/var/lib/tomcat85/newrelic/newrelic.jar\"  # ANSIBLE MANAGED"
-              path: /var/lib/tomcat85/bin/setenv.sh
-            - line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.application_logging.forwarding.context_data.enabled=true"  # ANSIBLE MANAGED'
-              path: /var/lib/tomcat7/bin/setenv.sh
-            - line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.application_logging.forwarding.context_data.enabled=true"  # ANSIBLE MANAGED'
-              path: /var/lib/tomcat85/bin/setenv.sh
-
-        - name: Adding Java 7-specific New Relic flags
-          when: inventory.get('tomcat', {}).get('jdk') == 'zulu7'
-          ansible.builtin.lineinfile:
-            insertafter: EOF
-            # https://docs.newrelic.com/docs/distributed-tracing/concepts/how-new-relic-distributed-tracing-works/
-            line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.distributed_tracing.enabled=true"  # ANSIBLE MANAGED'
-            path: "/var/lib/{{ item }}/bin/setenv.sh"
-          loop:
-            - tomcat7
-            - tomcat85
-
-        - name: Adding Java 8+-specific New Relic flags
-          when: inventory.get('tomcat', {}).get('jdk') == 'zulu8'
-          ansible.builtin.lineinfile:
-            insertafter: EOF
-            # https://docs.newrelic.com/docs/apm/agents/java-agent/features/real-time-profiling-java-using-jfr-metrics/
-            line: 'export CATALINA_OPTS="$CATALINA_OPTS -XX:StartFlightRecording -Dnewrelic.config.jfr.enabled=true"  # ANSIBLE MANAGED'
-            path: "/var/lib/{{ item }}/bin/setenv.sh"
-          loop:
-            - tomcat7
-            - tomcat85
+#    - name: Disabling Tomcat session persistence
+#      ansible.builtin.replace:
+#        # prevent 'ClassNotFoundException while loading persisted sessions'
+#        path: "/var/lib/{{ item }}/conf/context.xml"
+#        regexp: '(\s*)<!--\s*\n(\s*)<Manager pathname="" />.*\n(\s*)-->.*'
+#        replace: '\1<Manager pathname="" /> <!-- ANSIBLE ENABLED -->'
+#      loop:
+#        - tomcat7
+#        - tomcat85
+#
+#    - name: Increasing Tomcat cache size
+#      ansible.builtin.lineinfile:
+#        insertbefore: '^</Context>'
+#        # prevent org.apache.catalina.webresources.Cache.getResource failures
+#        line: '  <Resources cachingAllowed="true" cacheMaxSize="262144" /> <!-- ANSIBLE MANAGED -->'
+#        path: "/var/lib/{{ item }}/conf/context.xml"
+#        regexp: 'cacheMaxSize'
+#      loop:
+#        - tomcat7
+#        - tomcat85
+#
+#    - name: Removing IP-based access restrictions on Tomcat manager
+#      ansible.builtin.replace:
+#        after: 'privileged="true" >'
+#        before: '  <Manager'
+#        path: "/var/lib/{{ item }}/webapps/manager/META-INF/context.xml"
+#        regexp: '^(  )( *(?:<Valve|allow).*)$'
+#        replace: '\1<!-- ANSIBLE MANAGED: \2 -->'
+#      loop:
+#        - tomcat7
+#        - tomcat85
+#
+#    - name: Configuring logback-access
+#      ansible.builtin.template:
+#        dest: "/var/lib/{{ item }}/conf/logback-access.xml"
+#        group: tomcat
+#        mode: '0400'
+#        owner: tomcat
+#        src: ../templates/logback-access.xml.j2
+#      loop:
+#        - tomcat7
+#        - tomcat85
+#
+#    - name: Attaching logback-access to Tomcat
+#      ansible.builtin.lineinfile:
+#        insertbefore: '</Host>'
+#        line: '        <Valve className="ch.qos.logback.access.tomcat.LogbackValve" filename="conf/logback-access.xml"/> <!-- ANSIBLE MANAGED -->'
+#        path: "/var/lib/{{ item }}/conf/server.xml"
+#        regexp: 'LogbackValve'
+#      loop:
+#        - tomcat7
+#        - tomcat85
+#
+#    - name: Configuring Tomcat log rotation
+#      when: inventory.get('tomcat', {}).get('enabled')
+#      ansible.builtin.template:
+#        dest: /etc/logrotate.d/tomcat
+#        group: root
+#        mode: '0444'
+#        owner: root
+#        src: ../templates/tomcat.logrotate.j2
+#
+#    - name: Configuring Tomcat environment variables
+#      ansible.builtin.template:
+#        dest: "/var/lib/{{ item }}/bin/setenv.sh"
+#        group: tomcat
+#        mode: '0550'
+#        owner: tomcat
+#        src: ../templates/setenv.sh.j2
+#      loop:
+#        - tomcat7
+#        - tomcat85
+#
+#    - name: Creating Nginx directory for static assets
+#      ansible.builtin.file:
+#        group: nginx
+#        mode: '0755'
+#        owner: nginx
+#        path: /etc/nginx/static
+#        state: directory
+#
+#    - name: Uploading logo images
+#      ansible.builtin.copy:
+#        dest: /etc/nginx/static
+#        group: nginx
+#        mode: '0444'
+#        owner: nginx
+#        src: ../static/images
+#
+#    - name: Creating Grails configuration directory
+#      ansible.builtin.file:
+#        group: tomcat
+#        mode: '0755'
+#        owner: tomcat
+#        path: /home/tomcat/.grails
+#        state: directory
+#
+#    - name: Removing stale Grails configuration
+#      ansible.builtin.file:
+#        path: "{{ item }}"
+#        state: absent
+#      loop:
+#        - /home/tomcat/.grails/openboxes-config.properties
+#        - /var/lib/tomcat7/.grails
+#        - /var/lib/tomcat85/.grails
+#
+#    - name: Configuring Grails
+#      ansible.builtin.template:
+#        dest: /home/tomcat/.grails/openboxes-config.groovy
+#        group: tomcat
+#        mode: '0444'
+#        owner: tomcat
+#        src: ../templates/openboxes-config.groovy.j2
+#
+#    - name: "Redirecting / to {{ inventory.app_context }}"
+#      ansible.builtin.template:
+#        dest: "/var/lib/{{ item }}/webapps/ROOT/index.jsp"
+#        group: tomcat
+#        mode: '0440'
+#        owner: tomcat
+#        src: ../templates/index.jsp.j2
+#      loop:
+#        - tomcat7
+#        - tomcat85
+#
+#
+#    - name: Configuring New Relic
+#      when: vault.new_relic is defined
+#      block:
+#
+#        - name: Adding New Relic flags to Tomcat's setenv.sh
+#          ansible.builtin.lineinfile:
+#            insertafter: EOF
+#            line: "{{ item.line }}"
+#            path: "{{ item.path }}"
+#          loop:
+#            - line: "export CATALINA_OPTS=\"$CATALINA_OPTS -javaagent:/var/lib/tomcat7/newrelic/newrelic.jar\"  # ANSIBLE MANAGED"
+#              path: /var/lib/tomcat7/bin/setenv.sh
+#            - line: "export CATALINA_OPTS=\"$CATALINA_OPTS -javaagent:/var/lib/tomcat85/newrelic/newrelic.jar\"  # ANSIBLE MANAGED"
+#              path: /var/lib/tomcat85/bin/setenv.sh
+#            - line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.application_logging.forwarding.context_data.enabled=true"  # ANSIBLE MANAGED'
+#              path: /var/lib/tomcat7/bin/setenv.sh
+#            - line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.application_logging.forwarding.context_data.enabled=true"  # ANSIBLE MANAGED'
+#              path: /var/lib/tomcat85/bin/setenv.sh
+#
+#        - name: Adding Java 7-specific New Relic flags
+#          when: inventory.get('tomcat', {}).get('jdk') == 'zulu7'
+#          ansible.builtin.lineinfile:
+#            insertafter: EOF
+#            # https://docs.newrelic.com/docs/distributed-tracing/concepts/how-new-relic-distributed-tracing-works/
+#            line: 'export CATALINA_OPTS="$CATALINA_OPTS -Dnewrelic.config.distributed_tracing.enabled=true"  # ANSIBLE MANAGED'
+#            path: "/var/lib/{{ item }}/bin/setenv.sh"
+#          loop:
+#            - tomcat7
+#            - tomcat85
+#
+#        - name: Adding Java 8+-specific New Relic flags
+#          when: inventory.get('tomcat', {}).get('jdk') == 'zulu8'
+#          ansible.builtin.lineinfile:
+#            insertafter: EOF
+#            # https://docs.newrelic.com/docs/apm/agents/java-agent/features/real-time-profiling-java-using-jfr-metrics/
+#            line: 'export CATALINA_OPTS="$CATALINA_OPTS -XX:StartFlightRecording -Dnewrelic.config.jfr.enabled=true"  # ANSIBLE MANAGED'
+#            path: "/var/lib/{{ item }}/bin/setenv.sh"
+#          loop:
+#            - tomcat7
+#            - tomcat85
 
     # Expects the following configuration structure in the Ansible vault:
     #
@@ -216,11 +216,15 @@
             # Sentry looks specifically for the "SENTRY_DSN" environment variable and will use it for all its DSN
             # values. Because we need to support multiple possible DSNs, we need to use our own custom environment
             # variables and this one needs to be unset.
-            - name: Removing old Sentry DSN from Tomcat's setenv.sh
+            # TODO: We need to continue using SENTRY_DSN until we can configure sentry via application.yml
+            #       once that is resolved we can safely switch this back to removing SENTRY_DSN
+#            - name: Removing old Sentry DSN from Tomcat's setenv.sh
+            - name: Adding old Sentry DSN from Tomcat's setenv.sh
               ansible.builtin.lineinfile:
+                line: "export SENTRY_DSN={{ vault.sentry.environments[ansible_hostname].dsn.backend }}  # ANSIBLE MANAGED"
                 regexp: "^export SENTRY_DSN="
                 path: "{{ item }}"
-                state: absent
+#                state: absent
               no_log: true
               loop:
                 - /var/lib/tomcat7/bin/setenv.sh
@@ -231,6 +235,7 @@
               ansible.builtin.lineinfile:
                 line: "export SENTRY_ENVIRONMENT={{ vault.sentry.environments[ansible_hostname].name }}  # ANSIBLE MANAGED"
                 regexp: "^export SENTRY_ENVIRONMENT="
+                insertafter: "^export SENTRY_DSN="
                 path: "{{ item }}"
               no_log: true
               loop:
@@ -261,148 +266,148 @@
                 - /var/lib/tomcat7/bin/setenv.sh
                 - /var/lib/tomcat85/bin/setenv.sh
 
-    - name: Disabling database service
-      when: not inventory.get('mysql', {}).get('enabled')
-      ansible.builtin.systemd:
-        daemon_reload: true
-        enabled: true
-        name: mysql
-        state: stopped
-
-    - name: Configuring database
-      when: inventory.get('mysql', {}).get('enabled')
-      block:
-
-        - name: Configuring database with my.cnf
-          ansible.builtin.template:
-            dest: "/etc/mysql/{{ inventory.db_type }}.conf.d/70-openboxes.cnf"
-            group: root
-            mode: '0444'
-            owner: root
-            src: ../templates/my.cnf.j2
-
-        - name: Restarting database service
-          ansible.builtin.systemd:
-            daemon_reload: true
-            enabled: true
-            name: mysql
-            state: restarted
-
-        - name: Assigning database root password
-          changed_when: true
-          no_log: true
-          ansible.builtin.command:
-            argv:
-              - mysql
-              - -u
-              - root
-              - -p{{ vault.db_users.root.password }}
-              - -e
-              - >-
-                ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ vault.db_users.root.password }}';
-                FLUSH PRIVILEGES;
-
-        - name: Running mysql_secure_installation
-          register: mysql_secure_installation
-          ansible.builtin.expect:
-            command: "mysql_secure_installation -p{{ vault.db_users.root.password }}"
-            responses:
-              'Press y\|Y for Yes, any other key for No(.*)': 'n'  # disable Oracle MySQL's VALIDATE PASSWORD COMPONENT
-              'Enter current password for root(.*)': "{{ vault.db_users.root.password }}"
-              'Switch to unix_socket authentication(.*)': 'Y'
-              'Change the root password(.*)': 'n'
-              'Change the password for root(.*)': 'n'
-              'Remove anonymous users(.*)': 'Y'
-              'Disallow root login remotely(.*)': 'Y'
-              'Remove test database and access to it(.*)': 'Y'
-              'Reload privilege tables now(.*)': 'Y'
-            timeout: 5
-          failed_when: >
-            'Failed!' in mysql_secure_installation.stdout or
-            'All done!' not in mysql_secure_installation.stdout or
-            mysql_secure_installation.stdout.count('... skipping.') > 1 or
-            not (
-              mysql_secure_installation.stdout.count('Success.') == 5 or
-              mysql_secure_installation.stdout.count('Success!') == 6
-            )
-
-        - name: Collecting mysql_secure_installation output
-          when: mysql_secure_installation.stdout_lines is defined
-          ansible.builtin.debug:
-            msg:
-              - "{{ mysql_secure_installation.stdout_lines | regex_replace(vault.db_users.root.password, '********') }}"
-
-    - name: Updating Tomcat systemd service
-      ansible.builtin.template:
-        dest: /etc/systemd/system/tomcat.service
-        group: root
-        mode: '0444'
-        owner: root
-        src: ../templates/tomcat.service.j2
-
-    - name: Disabling Tomcat and Nginx
-      when: not inventory.get('tomcat', {}).get('enabled')
-      block:
-
-        - name: Disabling Tomcat service
-          ansible.builtin.systemd:
-            daemon_reload: false
-            enabled: false
-            name: tomcat
-            state: stopped
-
-        - name: Disabling Nginx service
-          ansible.builtin.systemd:
-            daemon_reload: false
-            enabled: false
-            name: nginx
-            state: stopped
-
-    - name: Restarting Tomcat and Nginx
-      when: inventory.get('tomcat', {}).get('enabled')
-      block:
-
-        - name: Restarting Tomcat service
-          ansible.builtin.systemd:
-            daemon_reload: true
-            enabled: true
-            name: tomcat
-            state: restarted
-
-        - name: Restarting Nginx service
-          ansible.builtin.systemd:
-            daemon_reload: true
-            enabled: true
-            name: nginx
-            state: restarted
-
-        - name: Declaring deployment targets
-          ansible.builtin.set_fact:
-            deployment_targets:
-              - "/var/lib/tomcat7/webapps{{ inventory.app_context }}"
-              - "/var/lib/tomcat85/webapps{{ inventory.app_context }}"
-
-        - name: Checking for existing deployments
-          register: find_results
-          ansible.builtin.find:
-            depth: 1
-            file_type: directory
-            paths: "{{ deployment_targets }}"
-            recurse: true
-            patterns:
-              - META-INF
-              - WEB-INF
-
-        - name: "Waiting for 200 from https://...{{ inventory.app_context }}"
-          delay: 5
-          retries: 60
-          register: https_response
-          until: https_response.status == 200
-          when: find_results.matched > 0
-          ansible.builtin.uri:
-            url: "https://{{ inventory.get('remote_webserver', ansible_fqdn) }}{{ inventory.app_context }}"
-
-        - name: "Announcing that Openboxes has not been deployed"
-          when: find_results.matched == 0
-          ansible.builtin.debug:
-            msg: "This host was configured successfully, but Openboxes is not deployed on it yet"
+#    - name: Disabling database service
+#      when: not inventory.get('mysql', {}).get('enabled')
+#      ansible.builtin.systemd:
+#        daemon_reload: true
+#        enabled: true
+#        name: mysql
+#        state: stopped
+#
+#    - name: Configuring database
+#      when: inventory.get('mysql', {}).get('enabled')
+#      block:
+#
+#        - name: Configuring database with my.cnf
+#          ansible.builtin.template:
+#            dest: "/etc/mysql/{{ inventory.db_type }}.conf.d/70-openboxes.cnf"
+#            group: root
+#            mode: '0444'
+#            owner: root
+#            src: ../templates/my.cnf.j2
+#
+#        - name: Restarting database service
+#          ansible.builtin.systemd:
+#            daemon_reload: true
+#            enabled: true
+#            name: mysql
+#            state: restarted
+#
+#        - name: Assigning database root password
+#          changed_when: true
+#          no_log: true
+#          ansible.builtin.command:
+#            argv:
+#              - mysql
+#              - -u
+#              - root
+#              - -p{{ vault.db_users.root.password }}
+#              - -e
+#              - >-
+#                ALTER USER 'root'@'localhost' IDENTIFIED BY '{{ vault.db_users.root.password }}';
+#                FLUSH PRIVILEGES;
+#
+#        - name: Running mysql_secure_installation
+#          register: mysql_secure_installation
+#          ansible.builtin.expect:
+#            command: "mysql_secure_installation -p{{ vault.db_users.root.password }}"
+#            responses:
+#              'Press y\|Y for Yes, any other key for No(.*)': 'n'  # disable Oracle MySQL's VALIDATE PASSWORD COMPONENT
+#              'Enter current password for root(.*)': "{{ vault.db_users.root.password }}"
+#              'Switch to unix_socket authentication(.*)': 'Y'
+#              'Change the root password(.*)': 'n'
+#              'Change the password for root(.*)': 'n'
+#              'Remove anonymous users(.*)': 'Y'
+#              'Disallow root login remotely(.*)': 'Y'
+#              'Remove test database and access to it(.*)': 'Y'
+#              'Reload privilege tables now(.*)': 'Y'
+#            timeout: 5
+#          failed_when: >
+#            'Failed!' in mysql_secure_installation.stdout or
+#            'All done!' not in mysql_secure_installation.stdout or
+#            mysql_secure_installation.stdout.count('... skipping.') > 1 or
+#            not (
+#              mysql_secure_installation.stdout.count('Success.') == 5 or
+#              mysql_secure_installation.stdout.count('Success!') == 6
+#            )
+#
+#        - name: Collecting mysql_secure_installation output
+#          when: mysql_secure_installation.stdout_lines is defined
+#          ansible.builtin.debug:
+#            msg:
+#              - "{{ mysql_secure_installation.stdout_lines | regex_replace(vault.db_users.root.password, '********') }}"
+#
+#    - name: Updating Tomcat systemd service
+#      ansible.builtin.template:
+#        dest: /etc/systemd/system/tomcat.service
+#        group: root
+#        mode: '0444'
+#        owner: root
+#        src: ../templates/tomcat.service.j2
+#
+#    - name: Disabling Tomcat and Nginx
+#      when: not inventory.get('tomcat', {}).get('enabled')
+#      block:
+#
+#        - name: Disabling Tomcat service
+#          ansible.builtin.systemd:
+#            daemon_reload: false
+#            enabled: false
+#            name: tomcat
+#            state: stopped
+#
+#        - name: Disabling Nginx service
+#          ansible.builtin.systemd:
+#            daemon_reload: false
+#            enabled: false
+#            name: nginx
+#            state: stopped
+#
+#    - name: Restarting Tomcat and Nginx
+#      when: inventory.get('tomcat', {}).get('enabled')
+#      block:
+#
+#        - name: Restarting Tomcat service
+#          ansible.builtin.systemd:
+#            daemon_reload: true
+#            enabled: true
+#            name: tomcat
+#            state: restarted
+#
+#        - name: Restarting Nginx service
+#          ansible.builtin.systemd:
+#            daemon_reload: true
+#            enabled: true
+#            name: nginx
+#            state: restarted
+#
+#        - name: Declaring deployment targets
+#          ansible.builtin.set_fact:
+#            deployment_targets:
+#              - "/var/lib/tomcat7/webapps{{ inventory.app_context }}"
+#              - "/var/lib/tomcat85/webapps{{ inventory.app_context }}"
+#
+#        - name: Checking for existing deployments
+#          register: find_results
+#          ansible.builtin.find:
+#            depth: 1
+#            file_type: directory
+#            paths: "{{ deployment_targets }}"
+#            recurse: true
+#            patterns:
+#              - META-INF
+#              - WEB-INF
+#
+#        - name: "Waiting for 200 from https://...{{ inventory.app_context }}"
+#          delay: 5
+#          retries: 60
+#          register: https_response
+#          until: https_response.status == 200
+#          when: find_results.matched > 0
+#          ansible.builtin.uri:
+#            url: "https://{{ inventory.get('remote_webserver', ansible_fqdn) }}{{ inventory.app_context }}"
+#
+#        - name: "Announcing that Openboxes has not been deployed"
+#          when: find_results.matched == 0
+#          ansible.builtin.debug:
+#            msg: "This host was configured successfully, but Openboxes is not deployed on it yet"
