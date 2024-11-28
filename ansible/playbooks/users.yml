@@ -88,7 +88,7 @@
              | list
              | unique }}
 
-        - name: Enabling DB access for users listed in firewall config
+        - name: Enabling DB full access for users listed in firewall config
           changed_when: true
           when: inventory.get('firewall') and inventory.get('mysql', {}).get('enabled')
           ansible.builtin.command:
@@ -107,6 +107,28 @@
           loop: >-
             {{ inventory.firewall.values()
              | selectattr('mysql_user', 'defined')
+             | selectattr('read_only', 'undefined')  
+             | subelements('ips') }}
+
+        - name: Enabling DB read only access for users listed in firewall config
+          changed_when: true
+          when: inventory.get('firewall') and inventory.get('mysql', {}).get('enabled')
+          ansible.builtin.command:
+            argv:
+              - mysql
+              - -u
+              - root
+              - -p{{ vault.db_users.root.password }}
+              - -e
+              - >-
+                DROP USER IF EXISTS '{{ item[0].mysql_user }}'@'{{ item[1] }}';
+                CREATE USER '{{ item[0].mysql_user }}'@'{{ item[1] }}' IDENTIFIED BY '{{ vault.db_users[item[0].mysql_user].password }}';
+                GRANT SELECT ON `{{ inventory.db_name }}`.* TO '{{ item[0].mysql_user }}'@'{{ item[1] }}';
+                FLUSH PRIVILEGES;
+          loop: >-
+            {{ inventory.firewall.values()
+             | selectattr('mysql_user', 'defined')
+             | selectattr('read_only', 'true') 
              | subelements('ips') }}
 
         - name: Creating database user for New Relic
