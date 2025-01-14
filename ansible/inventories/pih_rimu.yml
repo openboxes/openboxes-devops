@@ -145,6 +145,7 @@ all:
             pih_cld_whdev:
               ips:
                 - 40.70.215.46
+                - 208.89.61.42
               mysql_user: finance
               port: 3306
               require_mysql_ssl: false
@@ -158,7 +159,6 @@ all:
               ips:
                 - 44.231.117.185
                 - 52.89.22.131
-                - 208.89.61.42
               mysql_user: finance
               port: 3306
               require_mysql_ssl: true
