@@ -179,8 +179,6 @@
     #       dsn:
     #         backend: https://...@.ingest.us.sentry.io/... (if want to disable, leave blank)
     #         frontend_web: https://...@.ingest.us.sentry.io/... (if want to disable, leave blank)
-    #
-    # And outputs the following environment variables: SENTRY_DSN_FRONTEND_WEB, SENTRY_DSN_BACKEND, SENTRY_ENVIRONMENT
     - name: Configuring Sentry
       when: vault.sentry is defined
       block:
@@ -191,20 +189,19 @@
             - vault.sentry.environments[ansible_hostname] is defined
             - vault.sentry.environments[ansible_hostname].legacy
           block:
+            - name: Activating Grails 1 Sentry plugin
+              ansible.builtin.lineinfile:
+                line: 'grails.plugins.raven.active = true'
+                path: /home/tomcat/.grails/openboxes-config.groovy
+                regexp: 'grails.plugins.raven.active = false'
 
-          - name: Activating Grails 1 Sentry plugin
-            ansible.builtin.lineinfile:
-              line: 'grails.plugins.raven.active = true'
-              path: /home/tomcat/.grails/openboxes-config.groovy
-              regexp: 'grails.plugins.raven.active = false'
-
-          - name: Configuring Grails 1 Sentry DSN
-            ansible.builtin.lineinfile:
-              insertafter: 'grails.plugins.raven.active'
-              line: "grails.plugins.raven.dsn = \"{{ vault.sentry.environments[ansible_hostname].dsn.backend }}\""
-              path: /home/tomcat/.grails/openboxes-config.groovy
-              regexp: "^grails.plugins.raven.dsn ="
-            no_log: true
+            - name: Configuring Grails 1 Sentry DSN
+              ansible.builtin.lineinfile:
+                insertafter: 'grails.plugins.raven.active'
+                line: "grails.plugins.raven.dsn = \"{{ vault.sentry.environments[ansible_hostname].dsn.backend }}\""
+                path: /home/tomcat/.grails/openboxes-config.groovy
+                regexp: "^grails.plugins.raven.dsn ="
+              no_log: true
 
         # For Grails 3 environments (0.9.x and newer)
         - name: Configuring Sentry For Host
@@ -212,19 +209,14 @@
             - vault.sentry.environments[ansible_hostname] is defined
             - not vault.sentry.environments[ansible_hostname].legacy
           block:
-
             # Sentry looks specifically for the "SENTRY_DSN" environment variable and will use it for all its DSN
-            # values. Because we need to support multiple possible DSNs, we need to use our own custom environment
-            # variables and this one needs to be unset.
-            # TODO: We need to continue using SENTRY_DSN until we can configure sentry via application.yml
-            #       once that is resolved we can safely switch this back to removing SENTRY_DSN
-#            - name: Removing old Sentry DSN from Tomcat's setenv.sh
-            - name: Adding old Sentry DSN from Tomcat's setenv.sh
+            # values. Because we need to support multiple possible DSNs (frontend and backend), we opt to use our
+            # own custom environment variables for DSN and so this default one needs to be unset.
+            - name: Removing old Sentry DSN from Tomcat's setenv.sh
               ansible.builtin.lineinfile:
-                line: "export SENTRY_DSN={{ vault.sentry.environments[ansible_hostname].dsn.backend }}  # ANSIBLE MANAGED"
                 regexp: "^export SENTRY_DSN="
                 path: "{{ item }}"
-#                state: absent
+                state: absent
               no_log: true
               loop:
                 - /var/lib/tomcat7/bin/setenv.sh
@@ -235,7 +227,20 @@
               ansible.builtin.lineinfile:
                 line: "export SENTRY_ENVIRONMENT={{ vault.sentry.environments[ansible_hostname].name }}  # ANSIBLE MANAGED"
                 regexp: "^export SENTRY_ENVIRONMENT="
-                insertafter: "^export SENTRY_DSN="
+                path: "{{ item }}"
+              no_log: true
+              loop:
+                - /var/lib/tomcat7/bin/setenv.sh
+                - /var/lib/tomcat85/bin/setenv.sh
+
+            # Annoyingly React requires ALL environment variables to be prefixed with "REACT_APP_" and so we can't use
+            # the Sentry default "SENTRY_ENVIRONMENT" like we can on the backend. We need to define our own for React.
+            - name: Adding Sentry Frontend (Web) Environment to Tomcat's setenv.sh (optional)
+              when: vault.sentry.environments[ansible_hostname].name is defined
+              ansible.builtin.lineinfile:
+                line: "export REACT_APP_SENTRY_ENVIRONMENT={{ vault.sentry.environments[ansible_hostname].name }}  # ANSIBLE MANAGED"
+                regexp: "^export REACT_APP_SENTRY_ENVIRONMENT="
+                insertafter: "^export SENTRY_ENVIRONMENT="
                 path: "{{ item }}"
               no_log: true
               loop:
@@ -247,7 +252,7 @@
               ansible.builtin.lineinfile:
                 line: "export SENTRY_DSN_BACKEND={{ vault.sentry.environments[ansible_hostname].dsn.backend }}  # ANSIBLE MANAGED"
                 regexp: "^export SENTRY_DSN_BACKEND="
-                insertafter: "^export SENTRY_ENVIRONMENT="
+                insertafter: "^export REACT_APP_SENTRY_ENVIRONMENT="
                 path: "{{ item }}"
               no_log: true
               loop:
@@ -257,8 +262,8 @@
             - name: Adding Sentry Frontend (Web) DSN to Tomcat's setenv.sh (optional)
               when: vault.sentry.environments[ansible_hostname].dsn.frontend_web is defined
               ansible.builtin.lineinfile:
-                line: "export SENTRY_DSN_FRONTEND_WEB={{ vault.sentry.environments[ansible_hostname].dsn.frontend_web }}  # ANSIBLE MANAGED"
-                regexp: "^export SENTRY_DSN_FRONTEND_WEB="
+                line: "export REACT_APP_WEB_SENTRY_DSN={{ vault.sentry.environments[ansible_hostname].dsn.frontend_web }}  # ANSIBLE MANAGED"
+                regexp: "^export REACT_APP_WEB_SENTRY_DSN="
                 insertafter: "^export SENTRY_DSN_BACKEND="
                 path: "{{ item }}"
               no_log: true
